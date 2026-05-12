@@ -5,8 +5,17 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 )
+
+const maxRecentConnections = 10
+
+type RecentConnection struct {
+	URL         string    `json:"url"`
+	Name        string    `json:"name,omitempty"`
+	ConnectedAt time.Time `json:"connected_at"`
+}
 
 type Preferences struct {
 	Theme                     Theme          `json:"theme"`
@@ -21,8 +30,10 @@ type Preferences struct {
 	ExperimentalGlobalHotkeys bool           `json:"experimental_global_hotkeys"`
 	AbsoluteSideButtonsViaRel bool           `json:"absolute_side_buttons_via_relative"`
 	ScrollThrottle            ScrollThrottle `json:"scroll_throttle"`
-	ScrollThrottleMs          int            `json:"scroll_throttle_ms,omitempty"`
-	PointerMoveThrottleMs     int            `json:"pointer_move_throttle_ms,omitempty"`
+	ScrollThrottleMs          int                `json:"scroll_throttle_ms,omitempty"`
+	PointerMoveThrottleMs     int                `json:"pointer_move_throttle_ms,omitempty"`
+	CaptureToggleKey          string             `json:"capture_toggle_key,omitempty"`
+	RecentConnections         []RecentConnection `json:"recent_connections,omitempty"`
 }
 
 //go:generate go tool github.com/dmarkham/enumer -type=Theme,ChromeAnchor,ChromeLayout,ScrollThrottle -linecomment -json -text -output prefs_enums.go
@@ -161,6 +172,9 @@ func (p *Preferences) normalize() {
 	default:
 		p.ChromeAnchor = chromeAnchorTopRight
 	}
+	if !isValidCaptureToggleKey(p.CaptureToggleKey) {
+		p.CaptureToggleKey = defaultCaptureToggleKey
+	}
 	switch p.ChromeLayout {
 	case chromeLayoutHorizontal, chromeLayoutVertical:
 	default:
@@ -210,4 +224,62 @@ func clampInt(value, minValue, maxValue int) int {
 		return maxValue
 	}
 	return value
+}
+
+func (p *Preferences) addRecentConnection(url, name string) {
+	now := time.Now()
+	for i, rc := range p.RecentConnections {
+		if rc.URL == url {
+			p.RecentConnections[i].ConnectedAt = now
+			if name != "" {
+				p.RecentConnections[i].Name = name
+			}
+			p.sortRecentConnections()
+			return
+		}
+	}
+	p.RecentConnections = append(p.RecentConnections, RecentConnection{
+		URL:         url,
+		Name:        name,
+		ConnectedAt: now,
+	})
+	p.sortRecentConnections()
+	if len(p.RecentConnections) > maxRecentConnections {
+		p.RecentConnections = p.RecentConnections[:maxRecentConnections]
+	}
+}
+
+func (p *Preferences) removeRecentConnection(url string) {
+	p.RecentConnections = slices.DeleteFunc(p.RecentConnections, func(rc RecentConnection) bool {
+		return rc.URL == url
+	})
+}
+
+func (p *Preferences) sortRecentConnections() {
+	slices.SortFunc(p.RecentConnections, func(a, b RecentConnection) int {
+		if a.ConnectedAt.After(b.ConnectedAt) {
+			return -1
+		}
+		if a.ConnectedAt.Before(b.ConnectedAt) {
+			return 1
+		}
+		return 0
+	})
+}
+
+const defaultCaptureToggleKey = "F9"
+
+var allowedCaptureToggleKeys = []string{
+	"F1", "F2", "F3", "F4", "F5", "F6",
+	"F7", "F8", "F9", "F10", "F11", "F12",
+	"Pause", "ScrollLock",
+}
+
+func isValidCaptureToggleKey(key string) bool {
+	for _, k := range allowedCaptureToggleKeys {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }

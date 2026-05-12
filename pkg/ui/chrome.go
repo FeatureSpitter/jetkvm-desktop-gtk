@@ -11,6 +11,7 @@ const (
 	IconMedia
 	IconStats
 	IconTerminal
+	IconCapture
 	IconMinus
 	IconPlus
 	IconPower
@@ -111,6 +112,22 @@ func drawIcon(ctx *Context, kind IconKind, r Rect, clr color.Color, active bool)
 		ctx.StrokeLine(Point{left + 4, top + 6}, Point{left + 7, top + 9}, 1.4, clr)
 		ctx.StrokeLine(Point{left + 4, bottom - 7}, Point{left + 7, top + 9}, 1.4, clr)
 		ctx.StrokeLine(Point{left + 10, bottom - 6}, Point{right - 4, bottom - 6}, 1.4, clr)
+	case IconCapture:
+		rad := (right - left) / 2
+		ctx.StrokeLine(Point{cx, top}, Point{cx, top + 3}, 1.5, clr)
+		ctx.StrokeLine(Point{cx, bottom}, Point{cx, bottom - 3}, 1.5, clr)
+		ctx.StrokeLine(Point{left, cy}, Point{left + 3, cy}, 1.5, clr)
+		ctx.StrokeLine(Point{right, cy}, Point{right - 3, cy}, 1.5, clr)
+		segments := 12
+		for i := range segments {
+			a1 := float64(i) * 2 * 3.14159265 / float64(segments)
+			a2 := float64(i+1) * 2 * 3.14159265 / float64(segments)
+			x1 := cx + rad*cosApprox(a1)
+			y1 := cy + rad*sinApprox(a1)
+			x2 := cx + rad*cosApprox(a2)
+			y2 := cy + rad*sinApprox(a2)
+			ctx.StrokeLine(Point{x1, y1}, Point{x2, y2}, 1.4, clr)
+		}
 	case IconMinus:
 		ctx.StrokeLine(Point{left, cy}, Point{right, cy}, 2, clr)
 	case IconPlus:
@@ -143,6 +160,24 @@ func drawIcon(ctx *Context, kind IconKind, r Rect, clr color.Color, active bool)
 		ctx.StrokeLine(Point{left, top}, Point{right, bottom}, 1.8, clr)
 		ctx.StrokeLine(Point{right, top}, Point{left, bottom}, 1.8, clr)
 	}
+}
+
+func sinApprox(x float64) float64 {
+	// Taylor series: sin(x) ~ x - x^3/6 + x^5/120 - x^7/5040
+	// Normalize x to [-pi, pi]
+	const twoPi = 2 * 3.14159265
+	for x > 3.14159265 {
+		x -= twoPi
+	}
+	for x < -3.14159265 {
+		x += twoPi
+	}
+	x2 := x * x
+	return x * (1 - x2/6*(1-x2/20*(1-x2/42)))
+}
+
+func cosApprox(x float64) float64 {
+	return sinApprox(x + 3.14159265/2)
 }
 
 func rgba(r, g, b, a uint8, alpha float64) color.Color {

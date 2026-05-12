@@ -29,6 +29,7 @@ const (
 	iconMedia                      // media
 	iconStats                      // stats
 	iconTerminal                   // terminal
+	iconCapture                    // capture
 	iconMinus                      // minus
 	iconPlus                       // plus
 	iconPower                      // power
@@ -187,6 +188,8 @@ func uiIcon(kind iconKind) ui.IconKind {
 		return ui.IconStats
 	case iconTerminal:
 		return ui.IconTerminal
+	case iconCapture:
+		return ui.IconCapture
 	case iconMinus:
 		return ui.IconMinus
 	case iconPlus:
@@ -394,12 +397,13 @@ func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []ch
 			if a.pasteOpen {
 				a.closePasteOverlay()
 			} else {
-				a.pasteOpen = true
-				a.loadClipboardText()
-				a.settingsOpen = false
-				a.mediaOpen = false
-				a.serialConsoleOpen = false
-				a.applyCursorMode()
+			a.pasteOpen = true
+			a.loadClipboardText()
+			a.settingsOpen = false
+			a.mediaOpen = false
+			a.serialConsoleOpen = false
+			a.releaseTotalCapture()
+			a.applyCursorMode()
 			}
 		}})
 		defs = append(defs, chromeButton{id: "media", hint: "Virtual media", icon: iconMedia, enabled: true, active: a.mediaOpen, onClick: func() {
@@ -419,19 +423,30 @@ func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []ch
 			}})
 		}
 	}
+	if snap.Phase == session.PhaseConnected {
+		defs = append(defs, chromeButton{id: "capture", hint: "Total Capture", icon: iconCapture, enabled: true, active: a.totalCapture, onClick: func() {
+			a.toggleTotalCapture()
+		}})
+	}
 	defs = append(defs,
 		chromeButton{id: "stats", hint: "Connection stats", icon: iconStats, enabled: true, active: a.statsOpen, onClick: func() { a.statsOpen = !a.statsOpen }},
-		chromeButton{id: "fullscreen", hint: "Toggle fullscreen", icon: iconFullscreen, enabled: true, active: ebiten.IsFullscreen(), onClick: func() { ebiten.SetFullscreen(!ebiten.IsFullscreen()) }},
+		chromeButton{id: "fullscreen", hint: "Toggle fullscreen", icon: iconFullscreen, enabled: true, active: ebiten.IsFullscreen(), onClick: func() {
+			if ebiten.IsFullscreen() {
+				a.releaseTotalCapture()
+			}
+			ebiten.SetFullscreen(!ebiten.IsFullscreen())
+		}},
 		chromeButton{id: "settings", hint: "Settings", icon: iconSettings, enabled: true, active: a.settingsOpen, onClick: func() {
 			if a.settingsOpen {
 				a.closeSettingsOverlay()
 			} else {
-				a.settingsOpen = true
-				a.pasteOpen = false
-				a.mediaOpen = false
-				a.serialConsoleOpen = false
-				a.refreshSettingsSection(a.settingsSection)
-				a.applyCursorMode()
+			a.settingsOpen = true
+			a.pasteOpen = false
+			a.mediaOpen = false
+			a.serialConsoleOpen = false
+			a.releaseTotalCapture()
+			a.refreshSettingsSection(a.settingsSection)
+			a.applyCursorMode()
 			}
 			a.revealUIFor(1200 * time.Millisecond)
 		}},
@@ -2221,6 +2236,12 @@ func (a *App) settingsKeyboardBody(snap session.Snapshot) ui.Element {
 			a.savePreferences()
 		})),
 		ui.Fixed(ui.Spacer{H: 18}),
+		ui.Fixed(settingsSectionLabelElement("Total Capture toggle key")),
+		ui.Fixed(ui.Spacer{H: 8}),
+		ui.Fixed(ui.Paragraph{Text: "This key toggles fullscreen + Total Capture mode. It is never sent to the KVM target while capture is active.", Size: 12, Color: a.currentTheme().Muted}),
+		ui.Fixed(ui.Spacer{H: 10}),
+		ui.Fixed(a.captureToggleKeySelector()),
+		ui.Fixed(ui.Spacer{H: 18}),
 		ui.Fixed(settingsSectionLabelElement("Experimental remote shortcuts")),
 		ui.Fixed(ui.Spacer{H: 8}),
 		ui.Fixed(ui.Paragraph{Text: "Window-only experimental backend. These chords send remote task switching macros instead of forwarding the local chord as HID input.", Size: 12, Color: a.currentTheme().Muted}),
@@ -2258,6 +2279,21 @@ func (a *App) settingsKeyboardBody(snap session.Snapshot) ui.Element {
 		ui.Fixed(ui.Paragraph{Text: "Make this match the remote OS only for pasted text and macros.", Size: 13, Color: a.currentTheme().Muted}),
 	)
 	return settingsCardElement("", ui.Column{Children: children})
+}
+
+func (a *App) captureToggleKeySelector() ui.Element {
+	buttons := make([]ui.Element, 0, len(allowedCaptureToggleKeys))
+	for _, key := range allowedCaptureToggleKeys {
+		key := key
+		buttons = append(buttons, settingsActionButton(key, settingsActionVisual{
+			Enabled: true,
+			Active:  a.prefs.CaptureToggleKey == key,
+		}, 64, func() {
+			a.prefs.CaptureToggleKey = key
+			a.savePreferences()
+		}))
+	}
+	return ui.Wrap{Children: buttons, Spacing: 8, LineSpacing: 6}
 }
 
 func experimentalHotkeyBackendLabel(capability hotkeys.Capability) string {

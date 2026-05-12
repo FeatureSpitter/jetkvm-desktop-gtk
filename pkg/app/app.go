@@ -18,6 +18,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/pion/webrtc/v4"
 
+	"github.com/lkarlslund/jetkvm-desktop/pkg/capture"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/client"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/discovery"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
@@ -86,6 +87,8 @@ type App struct {
 	lastWheelAt            time.Time
 	suppressKeysUntilClear bool
 	suppressMouseUntilUp   bool
+	totalCapture           bool
+	grabber                capture.Grabber
 	sectionData            sectionData
 	pasteText              string
 	pasteDelay             uint16
@@ -422,6 +425,7 @@ func New(cfg Config) (*App, error) {
 		sectionLoadSeq:      make(map[settingsSection]uint64),
 		mediaView:           mediaViewHome,
 		mediaMode:           virtualmedia.ModeCDROM,
+		grabber:             capture.New(),
 	}, nil
 }
 
@@ -490,6 +494,7 @@ func (a *App) Update() error {
 	nowFocused := ebiten.IsFocused()
 	if a.focused && !nowFocused {
 		a.releaseAllKeys(true)
+		a.releaseTotalCapture()
 		if a.relative {
 			a.relative = false
 			a.applyCursorMode()
@@ -498,6 +503,21 @@ func (a *App) Update() error {
 	a.focused = nowFocused
 	a.syncUIPointer()
 	a.updateTextSelectionDrag()
+
+	if inpututil.IsKeyJustPressed(a.captureToggleKey()) {
+		if ebiten.IsFullscreen() {
+			a.releaseTotalCapture()
+			ebiten.SetFullscreen(false)
+		} else {
+			ebiten.SetFullscreen(true)
+			if a.ctrl != nil && a.ctrl.Snapshot().Phase == session.PhaseConnected && !a.totalCapture {
+				_ = a.grabber.Grab()
+				a.totalCapture = a.grabber.IsGrabbed()
+			}
+		}
+		a.releaseAllKeys(true)
+		a.suppressKeysUntilClear = true
+	}
 
 	a.syncPasteInput()
 	a.syncMediaInput()
@@ -673,6 +693,9 @@ func (a *App) syncKeyboard() {
 	}
 	keys := make([]input.Key, 0, len(rawKeys))
 	for _, rawKey := range rawKeys {
+		if a.totalCapture && rawKey == a.captureToggleKey() {
+			continue
+		}
 		if key, ok := toInputKey(rawKey); ok {
 			keys = append(keys, key)
 		}
@@ -705,6 +728,66 @@ func (a *App) handleExperimentalHotkeys(keys []input.Key) bool {
 		_ = a.ctrl.ExecuteRemoteHotkey(action)
 	}
 	return true
+}
+
+func captureToggleEbitenKey(name string) ebiten.Key {
+	switch name {
+	case "F1":
+		return ebiten.KeyF1
+	case "F2":
+		return ebiten.KeyF2
+	case "F3":
+		return ebiten.KeyF3
+	case "F4":
+		return ebiten.KeyF4
+	case "F5":
+		return ebiten.KeyF5
+	case "F6":
+		return ebiten.KeyF6
+	case "F7":
+		return ebiten.KeyF7
+	case "F8":
+		return ebiten.KeyF8
+	case "F9":
+		return ebiten.KeyF9
+	case "F10":
+		return ebiten.KeyF10
+	case "F11":
+		return ebiten.KeyF11
+	case "F12":
+		return ebiten.KeyF12
+	case "Pause":
+		return ebiten.KeyPause
+	case "ScrollLock":
+		return ebiten.KeyScrollLock
+	default:
+		return ebiten.KeyF9
+	}
+}
+
+func (a *App) captureToggleKey() ebiten.Key {
+	return captureToggleEbitenKey(a.prefs.CaptureToggleKey)
+}
+
+func (a *App) toggleTotalCapture() {
+	if a.totalCapture {
+		a.releaseTotalCapture()
+		return
+	}
+	if err := a.grabber.Grab(); err != nil {
+		log := logging.Subsystem("app")
+		log.Warn().Err(err).Msg("total capture grab failed")
+		return
+	}
+	a.totalCapture = true
+}
+
+func (a *App) releaseTotalCapture() {
+	if !a.totalCapture {
+		return
+	}
+	_ = a.grabber.Release()
+	a.totalCapture = false
 }
 
 func (a *App) syncMouse() {
@@ -2748,6 +2831,15 @@ func (a *App) invokeAction(id string) {
 			a.connectFromLauncher(strings.TrimPrefix(id, "discover:"))
 			return
 		}
+		if url, ok := strings.CutPrefix(id, "recent:"); ok {
+			a.connectFromLauncher(url)
+			return
+		}
+		if url, ok := strings.CutPrefix(id, "recent_remove:"); ok {
+			a.prefs.removeRecentConnection(url)
+			_ = savePreferences(a.prefs)
+			return
+		}
 		if macroID, ok := strings.CutPrefix(id, "macro_edit:"); ok {
 			a.invokeEditMacro(macroID)
 			return
@@ -3592,6 +3684,7 @@ func (a *App) syncSessionState() {
 	}
 	if a.lastPhase == session.PhaseConnected && phase != session.PhaseConnected {
 		a.resetConnectionHardwareState()
+		a.releaseTotalCapture()
 		if a.pasteOpen {
 			a.pasteOpen = false
 		}
@@ -4037,6 +4130,17 @@ func (a *App) connectFromLauncher(target string) {
 	a.pendingTarget = baseURL
 	a.launcherInput = baseURL
 	a.launcherOpen = false
+
+	name := ""
+	for _, d := range a.discovered {
+		if d.BaseURL == baseURL {
+			name = d.Name
+			break
+		}
+	}
+	a.prefs.addRecentConnection(baseURL, name)
+	_ = savePreferences(a.prefs)
+
 	a.connectTo(baseURL)
 }
 
@@ -4063,6 +4167,7 @@ func (a *App) effectivePassword() string {
 }
 
 func (a *App) connectTo(target string) {
+	a.releaseTotalCapture()
 	baseURL, err := normalizeBaseURL(target)
 	if err != nil {
 		a.launcherError = err.Error()
