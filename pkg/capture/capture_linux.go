@@ -51,6 +51,8 @@ import "C"
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -59,12 +61,37 @@ import (
 
 func init() { C.x11_init_threads() }
 
+// gsettings keys that GNOME/Mutter intercepts at the compositor level,
+// bypassing X11 grabs. We temporarily disable them during capture.
+var gnomeKeybindings = []struct {
+	schema string
+	key    string
+}{
+	{"org.gnome.desktop.wm.keybindings", "switch-applications"},
+	{"org.gnome.desktop.wm.keybindings", "switch-applications-backward"},
+	{"org.gnome.desktop.wm.keybindings", "switch-windows"},
+	{"org.gnome.desktop.wm.keybindings", "switch-windows-backward"},
+	{"org.gnome.desktop.wm.keybindings", "panel-main-menu"},
+	{"org.gnome.desktop.wm.keybindings", "switch-group"},
+	{"org.gnome.desktop.wm.keybindings", "switch-group-backward"},
+	{"org.gnome.mutter.keybindings", "toggle-tiled-left"},
+	{"org.gnome.mutter.keybindings", "toggle-tiled-right"},
+	{"org.gnome.mutter", "overlay-key"},
+}
+
+type savedBinding struct {
+	schema string
+	key    string
+	value  string
+}
+
 type x11Grabber struct {
-	mu       sync.Mutex
-	grabbed  atomic.Bool
-	display  *C.Display
-	target   C.Window
-	done     chan struct{}
+	mu            sync.Mutex
+	grabbed       atomic.Bool
+	display       *C.Display
+	target        C.Window
+	done          chan struct{}
+	savedBindings []savedBinding
 }
 
 func New() Grabber {
@@ -97,8 +124,6 @@ func (g *x11Grabber) Grab() error {
 		return fmt.Errorf("capture: XGrabKeyboard failed (code %d)", int(rc))
 	}
 
-	// Grab the pointer too — this forces the compositor (Mutter, Muffin, KWin)
-	// to yield its own shortcut handling (Alt+Tab, Super, etc.).
 	prc := C.XGrabPointer(dpy, target, C.True,
 		C.uint(C.ButtonPressMask|C.ButtonReleaseMask|C.PointerMotionMask),
 		C.GrabModeAsync, C.GrabModeAsync, C.None, C.None, C.CurrentTime)
@@ -113,14 +138,15 @@ func (g *x11Grabber) Grab() error {
 	g.display = dpy
 	g.target = target
 	g.done = make(chan struct{})
+
+	g.disableCompositorShortcuts()
+
 	g.grabbed.Store(true)
 
 	go g.pump()
 	return nil
 }
 
-// pump drains events from the grab connection and forwards key/pointer events
-// back to the GLFW window so the normal Ebiten input pipeline keeps working.
 func (g *x11Grabber) pump() {
 	defer close(g.done)
 	for g.grabbed.Load() {
@@ -142,6 +168,9 @@ func (g *x11Grabber) Release() error {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	g.restoreCompositorShortcuts()
+
 	if g.display != nil {
 		C.XUngrabPointer(g.display, C.CurrentTime)
 		C.XUngrabKeyboard(g.display, C.CurrentTime)
@@ -158,4 +187,40 @@ func (g *x11Grabber) IsGrabbed() bool {
 
 func (g *x11Grabber) PlatformNote() string {
 	return "Total Capture requires X11. Wayland is not supported."
+}
+
+// disableCompositorShortcuts saves and then blanks GNOME/Mutter keybindings
+// that the compositor intercepts before X11 grabs can catch them.
+func (g *x11Grabber) disableCompositorShortcuts() {
+	if _, err := exec.LookPath("gsettings"); err != nil {
+		return
+	}
+
+	g.savedBindings = nil
+	for _, kb := range gnomeKeybindings {
+		out, err := exec.Command("gsettings", "get", kb.schema, kb.key).Output()
+		if err != nil {
+			continue
+		}
+		original := strings.TrimSpace(string(out))
+		g.savedBindings = append(g.savedBindings, savedBinding{
+			schema: kb.schema,
+			key:    kb.key,
+			value:  original,
+		})
+
+		blank := "['']"
+		if kb.key == "overlay-key" {
+			blank = "''"
+		}
+		_ = exec.Command("gsettings", "set", kb.schema, kb.key, blank).Run()
+	}
+}
+
+// restoreCompositorShortcuts puts back the original GNOME/Mutter keybindings.
+func (g *x11Grabber) restoreCompositorShortcuts() {
+	for _, sb := range g.savedBindings {
+		_ = exec.Command("gsettings", "set", sb.schema, sb.key, sb.value).Run()
+	}
+	g.savedBindings = nil
 }
