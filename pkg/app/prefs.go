@@ -267,7 +267,7 @@ func (p *Preferences) sortRecentConnections() {
 	})
 }
 
-const defaultCaptureToggleKey = "F9"
+const defaultCaptureToggleKey = "ScrollLock"
 
 var allowedCaptureToggleKeys = []string{
 	"F1", "F2", "F3", "F4", "F5", "F6",

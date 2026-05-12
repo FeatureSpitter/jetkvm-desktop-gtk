@@ -2828,11 +2828,11 @@ func (a *App) invokeAction(id string) {
 			return
 		}
 		if strings.HasPrefix(id, "discover:") {
-			a.connectFromLauncher(strings.TrimPrefix(id, "discover:"))
+			a.connectFromLauncher(strings.TrimPrefix(id, "discover:"), false)
 			return
 		}
 		if url, ok := strings.CutPrefix(id, "recent:"); ok {
-			a.connectFromLauncher(url)
+			a.connectFromLauncher(url, false)
 			return
 		}
 		if url, ok := strings.CutPrefix(id, "recent_remove:"); ok {
@@ -4120,7 +4120,7 @@ func isValidHostname(host string) bool {
 	return true
 }
 
-func (a *App) connectFromLauncher(target string) {
+func (a *App) connectFromLauncher(target string, saveRecent bool) {
 	baseURL, err := normalizeBaseURL(target)
 	if err != nil {
 		a.launcherError = err.Error()
@@ -4131,15 +4131,17 @@ func (a *App) connectFromLauncher(target string) {
 	a.launcherInput = baseURL
 	a.launcherOpen = false
 
-	name := ""
-	for _, d := range a.discovered {
-		if d.BaseURL == baseURL {
-			name = d.Name
-			break
+	if saveRecent {
+		name := ""
+		for _, d := range a.discovered {
+			if d.BaseURL == baseURL {
+				name = d.Name
+				break
+			}
 		}
+		a.prefs.addRecentConnection(baseURL, name)
+		_ = savePreferences(a.prefs)
 	}
-	a.prefs.addRecentConnection(baseURL, name)
-	_ = savePreferences(a.prefs)
 
 	a.connectTo(baseURL)
 }

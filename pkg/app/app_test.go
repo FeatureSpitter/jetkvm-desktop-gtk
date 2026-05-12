@@ -822,7 +822,7 @@ func TestConnectFromLauncherLeavesLauncherWhileConnecting(t *testing.T) {
 	app.launcherMode = launcherModePassword
 	app.launcherPassword = "secret"
 
-	app.connectFromLauncher("192.168.1.50")
+	app.connectFromLauncher("192.168.1.50", true)
 
 	if app.launcherOpen {
 		t.Fatal("expected launcher to close while connecting")
@@ -886,7 +886,7 @@ func TestAppPasswordRetryFlowConnects(t *testing.T) {
 	}
 
 	app.launcherPassword = "secret"
-	app.connectFromLauncher(app.pendingTarget)
+	app.connectFromLauncher(app.pendingTarget, true)
 	if app.launcherOpen {
 		t.Fatal("expected launcher to close while retrying with password")
 	}
@@ -942,7 +942,7 @@ func TestAppWrongPasswordReturnsToPasswordPromptWithError(t *testing.T) {
 	waitForAppPhase(t, app, session.PhaseAuthFailed, 5*time.Second)
 	app.syncSessionState()
 	app.launcherPassword = "wrongpass"
-	app.connectFromLauncher(app.pendingTarget)
+	app.connectFromLauncher(app.pendingTarget, true)
 
 	if app.launcherOpen {
 		t.Fatal("expected launcher to close while retrying wrong password")
