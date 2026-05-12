@@ -103,6 +103,7 @@ type App struct {
 	launcherPassword       string
 	launcherError          string
 	pendingTarget          string
+	saveAsRecent           bool
 	discovery              *discovery.Scanner
 	discovered             []discovery.Device
 	settingsActions        map[settingsActionGroup]settingsActionState
@@ -4125,6 +4126,10 @@ func isValidHostname(host string) bool {
 }
 
 func (a *App) saveConnectedRecent() {
+	if !a.saveAsRecent {
+		return
+	}
+	a.saveAsRecent = false
 	url := a.cfg.BaseURL
 	if url == "" {
 		return

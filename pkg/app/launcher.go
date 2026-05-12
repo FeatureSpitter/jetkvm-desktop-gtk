@@ -73,6 +73,7 @@ func (a *App) syncLauncherInput() {
 		if a.launcherMode == launcherModePassword {
 			a.connectFromLauncher(a.pendingTarget)
 		} else {
+			a.saveAsRecent = true
 			a.connectFromLauncher(a.launcherInput)
 		}
 		return
@@ -143,6 +144,7 @@ func (e launcherScreenElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 					Children: []ui.Child{
 						ui.Flex(launcherInputElement(e), 1),
 						ui.Fixed(ui.Button{Label: "Connect", Enabled: validInput, OnClick: func() {
+							e.app.saveAsRecent = true
 							e.app.connectFromLauncher(e.app.launcherInput)
 						}}),
 					},

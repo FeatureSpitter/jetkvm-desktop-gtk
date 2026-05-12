@@ -17,17 +17,32 @@ static Window x11_focused_window(Display *dpy) {
 }
 
 // Drain one pending event from the grab connection.
-// If it is a key event, forward it to the target (GLFW) window so that
-// Ebiten still sees it.  Returns 0 when no event was pending.
+// Key events are forwarded to the target (GLFW) window so Ebiten sees them.
+// Pointer events are also forwarded so the Ebiten mouse pipeline keeps working.
+// Returns 0 when no event was pending.
 static int x11_pump_one(Display *dpy, Window target) {
 	if (XPending(dpy) == 0)
 		return 0;
 	XEvent ev;
 	XNextEvent(dpy, &ev);
-	if (ev.type == KeyPress || ev.type == KeyRelease) {
+	switch (ev.type) {
+	case KeyPress:
+	case KeyRelease:
 		ev.xkey.window = target;
 		XSendEvent(dpy, target, False, KeyPressMask | KeyReleaseMask, &ev);
 		XFlush(dpy);
+		break;
+	case ButtonPress:
+	case ButtonRelease:
+		ev.xbutton.window = target;
+		XSendEvent(dpy, target, False, ButtonPressMask | ButtonReleaseMask, &ev);
+		XFlush(dpy);
+		break;
+	case MotionNotify:
+		ev.xmotion.window = target;
+		XSendEvent(dpy, target, False, PointerMotionMask, &ev);
+		XFlush(dpy);
+		break;
 	}
 	return 1;
 }
@@ -82,6 +97,18 @@ func (g *x11Grabber) Grab() error {
 		return fmt.Errorf("capture: XGrabKeyboard failed (code %d)", int(rc))
 	}
 
+	// Grab the pointer too — this forces the compositor (Mutter, Muffin, KWin)
+	// to yield its own shortcut handling (Alt+Tab, Super, etc.).
+	prc := C.XGrabPointer(dpy, target, C.True,
+		C.uint(C.ButtonPressMask|C.ButtonReleaseMask|C.PointerMotionMask),
+		C.GrabModeAsync, C.GrabModeAsync, C.None, C.None, C.CurrentTime)
+	if prc != C.GrabSuccess {
+		C.XUngrabKeyboard(dpy, C.CurrentTime)
+		C.XFlush(dpy)
+		C.XCloseDisplay(dpy)
+		return fmt.Errorf("capture: XGrabPointer failed (code %d)", int(prc))
+	}
+
 	C.XFlush(dpy)
 	g.display = dpy
 	g.target = target
@@ -92,7 +119,7 @@ func (g *x11Grabber) Grab() error {
 	return nil
 }
 
-// pump drains events from the grab connection and forwards key events
+// pump drains events from the grab connection and forwards key/pointer events
 // back to the GLFW window so the normal Ebiten input pipeline keeps working.
 func (g *x11Grabber) pump() {
 	defer close(g.done)
@@ -116,6 +143,7 @@ func (g *x11Grabber) Release() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.display != nil {
+		C.XUngrabPointer(g.display, C.CurrentTime)
 		C.XUngrabKeyboard(g.display, C.CurrentTime)
 		C.XFlush(g.display)
 		C.XCloseDisplay(g.display)
