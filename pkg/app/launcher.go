@@ -71,9 +71,9 @@ func (a *App) syncLauncherInput() {
 	a.syncFocusedTextInput()
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 		if a.launcherMode == launcherModePassword {
-			a.connectFromLauncher(a.pendingTarget, true)
+			a.connectFromLauncher(a.pendingTarget)
 		} else {
-			a.connectFromLauncher(a.launcherInput, true)
+			a.connectFromLauncher(a.launcherInput)
 		}
 		return
 	}
@@ -143,7 +143,7 @@ func (e launcherScreenElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 					Children: []ui.Child{
 						ui.Flex(launcherInputElement(e), 1),
 						ui.Fixed(ui.Button{Label: "Connect", Enabled: validInput, OnClick: func() {
-							e.app.connectFromLauncher(e.app.launcherInput, true)
+							e.app.connectFromLauncher(e.app.launcherInput)
 						}}),
 					},
 				Spacing: 12,
@@ -279,7 +279,7 @@ func (e launcherDevicePanelElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 			Rect:    bounds,
 			Enabled: true,
 			OnClick: func(ui.PointerEvent) {
-				e.app.connectFromLauncher(baseURL, false)
+				e.app.connectFromLauncher(baseURL)
 			},
 		})
 	} else {
@@ -397,7 +397,7 @@ func (e launcherPasswordElement) children() []ui.Child {
 			}}),
 			ui.Flex(ui.Spacer{}, 1),
 			ui.Fixed(ui.Button{Label: "Connect", Enabled: strings.TrimSpace(e.app.launcherPassword) != "", OnClick: func() {
-				e.app.connectFromLauncher(e.app.pendingTarget, true)
+				e.app.connectFromLauncher(e.app.pendingTarget)
 			}}),
 		},
 		Spacing: 12,
@@ -474,7 +474,7 @@ func (e launcherRecentListElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 		if ctx.Runtime != nil {
 			ctx.Runtime.Register(ui.Control{
 				ID: "recent:" + url, Rect: connectRect, Enabled: true,
-				OnClick: func(ui.PointerEvent) { e.app.connectFromLauncher(url, false) },
+				OnClick: func(ui.PointerEvent) { e.app.connectFromLauncher(url) },
 			})
 			ctx.Runtime.Register(ui.Control{
 				ID: "recent_remove:" + url, Rect: removeRect, Enabled: true,

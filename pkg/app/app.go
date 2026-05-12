@@ -2828,11 +2828,11 @@ func (a *App) invokeAction(id string) {
 			return
 		}
 		if strings.HasPrefix(id, "discover:") {
-			a.connectFromLauncher(strings.TrimPrefix(id, "discover:"), false)
+			a.connectFromLauncher(strings.TrimPrefix(id, "discover:"))
 			return
 		}
 		if url, ok := strings.CutPrefix(id, "recent:"); ok {
-			a.connectFromLauncher(url, false)
+			a.connectFromLauncher(url)
 			return
 		}
 		if url, ok := strings.CutPrefix(id, "recent_remove:"); ok {
@@ -3704,7 +3704,11 @@ func (a *App) syncSessionState() {
 	}
 	if phase == session.PhaseConnected && a.lastPhase != session.PhaseConnected {
 		a.resetConnectionHardwareState()
+		a.saveConnectedRecent()
 		a.maybeExpandBrowseWindow()
+		if !ebiten.IsFullscreen() && !ebiten.IsWindowMaximized() {
+			ebiten.MaximizeWindow()
+		}
 		a.launcherOpen = false
 		a.launcherMode = launcherModeBrowse
 		a.launcherError = ""
@@ -4120,7 +4124,23 @@ func isValidHostname(host string) bool {
 	return true
 }
 
-func (a *App) connectFromLauncher(target string, saveRecent bool) {
+func (a *App) saveConnectedRecent() {
+	url := a.cfg.BaseURL
+	if url == "" {
+		return
+	}
+	name := ""
+	for _, d := range a.discovered {
+		if d.BaseURL == url {
+			name = d.Name
+			break
+		}
+	}
+	a.prefs.addRecentConnection(url, name)
+	_ = savePreferences(a.prefs)
+}
+
+func (a *App) connectFromLauncher(target string) {
 	baseURL, err := normalizeBaseURL(target)
 	if err != nil {
 		a.launcherError = err.Error()
@@ -4130,18 +4150,6 @@ func (a *App) connectFromLauncher(target string, saveRecent bool) {
 	a.pendingTarget = baseURL
 	a.launcherInput = baseURL
 	a.launcherOpen = false
-
-	if saveRecent {
-		name := ""
-		for _, d := range a.discovered {
-			if d.BaseURL == baseURL {
-				name = d.Name
-				break
-			}
-		}
-		a.prefs.addRecentConnection(baseURL, name)
-		_ = savePreferences(a.prefs)
-	}
 
 	a.connectTo(baseURL)
 }
