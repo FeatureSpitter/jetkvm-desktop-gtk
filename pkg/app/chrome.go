@@ -36,6 +36,8 @@ const (
 	iconSettings                   // settings
 	iconFullscreen                 // fullscreen
 	iconClose                      // close
+	iconDrag                       // drag
+	iconWoL                        // wol
 )
 
 type chromeButton struct {
@@ -200,6 +202,10 @@ func uiIcon(kind iconKind) ui.IconKind {
 		return ui.IconSettings
 	case iconFullscreen:
 		return ui.IconFullscreen
+	case iconDrag:
+		return ui.IconDrag
+	case iconWoL:
+		return ui.IconWoL
 	default:
 		return ui.IconClose
 	}
@@ -422,6 +428,13 @@ func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []ch
 				}
 			}})
 		}
+		defs = append(defs, chromeButton{id: "wol", hint: "Wake on LAN", icon: iconWoL, enabled: true, active: a.wolOpen, onClick: func() {
+			if a.wolOpen {
+				a.closeWoLOverlay()
+			} else {
+				a.openWoLOverlay()
+			}
+		}})
 	}
 	if snap.Phase == session.PhaseConnected {
 		defs = append(defs, chromeButton{id: "capture", hint: "Total Capture", icon: iconCapture, enabled: true, active: a.totalCapture, onClick: func() {
@@ -450,6 +463,7 @@ func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []ch
 			}
 			a.revealUIFor(1200 * time.Millisecond)
 		}},
+		chromeButton{id: "chrome_drag", hint: "Drag to move", icon: iconDrag, enabled: true, onClick: func() {}},
 	)
 
 	const size = 34.0
@@ -462,7 +476,15 @@ func (a *App) layoutChromeButtons(width, height int, snap session.Snapshot) []ch
 	} else {
 		totalH = (size * float64(len(defs))) + (gap * float64(len(defs)-1))
 	}
-	x, y := chromeAnchorOrigin(a.prefs.ChromeAnchor, float64(width), float64(height), totalW, totalH)
+	var x, y float64
+	if a.prefs.ChromeCustomPos {
+		x = a.prefs.ChromeCustomX
+		y = a.prefs.ChromeCustomY
+		x = max(0, min(x, float64(width)-totalW))
+		y = max(0, min(y, float64(height)-totalH))
+	} else {
+		x, y = chromeAnchorOrigin(a.prefs.ChromeAnchor, float64(width), float64(height), totalW, totalH)
+	}
 	out := make([]chromeButton, len(defs))
 	for i, def := range defs {
 		btnX := x
@@ -545,6 +567,32 @@ func (a *App) drawTopBar(screen *ebiten.Image, snap session.Snapshot) {
 	a.drawUIRoot(screen, &a.chromeRuntime, func(chromeButton) {}, chromeButtonsElement{
 		buttons: buttons,
 		alpha:   alpha,
+		onDragStart: func(x, y float64) {
+			a.chromeDragging = true
+			a.chromeDragStartX = x
+			a.chromeDragStartY = y
+			if len(buttons) > 0 {
+				a.chromeDragOriginX = buttons[0].rect.x
+				a.chromeDragOriginY = buttons[0].rect.y
+			}
+		},
+		onDragMove: func(x, y float64) {
+			if !a.chromeDragging {
+				return
+			}
+			dx := x - a.chromeDragStartX
+			dy := y - a.chromeDragStartY
+			a.prefs.ChromeCustomX = a.chromeDragOriginX + dx
+			a.prefs.ChromeCustomY = a.chromeDragOriginY + dy
+			a.prefs.ChromeCustomPos = true
+		},
+		onDragEnd: func() {
+			if !a.chromeDragging {
+				return
+			}
+			a.chromeDragging = false
+			_ = savePreferences(a.prefs)
+		},
 	})
 }
 
@@ -699,8 +747,11 @@ func (e settingsOverlayRootElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 }
 
 type chromeButtonsElement struct {
-	buttons []chromeButton
-	alpha   float64
+	buttons     []chromeButton
+	alpha       float64
+	onDragStart func(x, y float64)
+	onDragMove  func(x, y float64)
+	onDragEnd   func()
 }
 
 func (chromeButtonsElement) Measure(_ *ui.Context, constraints ui.Constraints) ui.Size {
@@ -714,18 +765,39 @@ func (e chromeButtonsElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 		if ctx.Runtime != nil {
 			actionID := btn.id
 			onClick := btn.onClick
-			ctx.Runtime.Register(ui.Control{
-				ID:      actionID,
-				Rect:    ui.Rect{X: btn.rect.x, Y: btn.rect.y, W: btn.rect.w, H: btn.rect.h},
-				Enabled: btn.enabled,
-				OnClick: func(ui.PointerEvent) {
-					if onClick != nil {
-						onClick()
-					} else if ctx.OnAction != nil {
-						ctx.OnAction(actionID)
-					}
-				},
-			})
+			if actionID == "chrome_drag" && e.onDragStart != nil {
+				ctx.Runtime.Register(ui.Control{
+					ID:      actionID,
+					Rect:    ui.Rect{X: btn.rect.x, Y: btn.rect.y, W: btn.rect.w, H: btn.rect.h},
+					Enabled: btn.enabled,
+					OnPress: func(ev ui.PointerEvent) {
+						e.onDragStart(ev.Point.X, ev.Point.Y)
+					},
+					OnDrag: func(ev ui.PointerEvent) {
+						if e.onDragMove != nil {
+							e.onDragMove(ev.Point.X, ev.Point.Y)
+						}
+					},
+					OnRelease: func(ev ui.PointerEvent) {
+						if e.onDragEnd != nil {
+							e.onDragEnd()
+						}
+					},
+				})
+			} else {
+				ctx.Runtime.Register(ui.Control{
+					ID:      actionID,
+					Rect:    ui.Rect{X: btn.rect.x, Y: btn.rect.y, W: btn.rect.w, H: btn.rect.h},
+					Enabled: btn.enabled,
+					OnClick: func(ui.PointerEvent) {
+						if onClick != nil {
+							onClick()
+						} else if ctx.OnAction != nil {
+							ctx.OnAction(actionID)
+						}
+					},
+				})
+			}
 		}
 		children = append(children, ui.Positioned{
 			X: btn.rect.x,

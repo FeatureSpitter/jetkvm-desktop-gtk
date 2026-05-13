@@ -148,10 +148,10 @@ func (e launcherScreenElement) Draw(ctx *ui.Context, bounds ui.Rect) {
 							e.app.connectFromLauncher(e.app.launcherInput)
 						}}),
 					},
-				Spacing: 12,
-			}),
-		},
-	}))
+					Spacing: 12,
+				}),
+			},
+		}))
 	if e.app.launcherError != "" {
 		children = append(children,
 			ui.Fixed(ui.Spacer{H: 12}),

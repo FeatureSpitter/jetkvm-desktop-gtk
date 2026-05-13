@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-const _iconKindName = "reconnectmousepastemediastatsterminalcaptureminuspluspowersettingsfullscreenclose"
+const _iconKindName = "reconnectmousepastemediastatsterminalcaptureminuspluspowersettingsfullscreenclosedragwol"
 
-var _iconKindIndex = [...]uint8{0, 9, 14, 19, 24, 29, 37, 44, 49, 53, 58, 66, 76, 81}
+var _iconKindIndex = [...]uint8{0, 9, 14, 19, 24, 29, 37, 44, 49, 53, 58, 66, 76, 81, 85, 88}
 
-const _iconKindLowerName = "reconnectmousepastemediastatsterminalcaptureminuspluspowersettingsfullscreenclose"
+const _iconKindLowerName = "reconnectmousepastemediastatsterminalcaptureminuspluspowersettingsfullscreenclosedragwol"
 
 func (i iconKind) String() string {
 	if i >= iconKind(len(_iconKindIndex)-1) {
@@ -38,9 +38,11 @@ func _iconKindNoOp() {
 	_ = x[iconSettings-(10)]
 	_ = x[iconFullscreen-(11)]
 	_ = x[iconClose-(12)]
+	_ = x[iconDrag-(13)]
+	_ = x[iconWoL-(14)]
 }
 
-var _iconKindValues = []iconKind{iconReconnect, iconMouse, iconPaste, iconMedia, iconStats, iconTerminal, iconCapture, iconMinus, iconPlus, iconPower, iconSettings, iconFullscreen, iconClose}
+var _iconKindValues = []iconKind{iconReconnect, iconMouse, iconPaste, iconMedia, iconStats, iconTerminal, iconCapture, iconMinus, iconPlus, iconPower, iconSettings, iconFullscreen, iconClose, iconDrag, iconWoL}
 
 var _iconKindNameToValueMap = map[string]iconKind{
 	_iconKindName[0:9]:        iconReconnect,
@@ -69,6 +71,10 @@ var _iconKindNameToValueMap = map[string]iconKind{
 	_iconKindLowerName[66:76]: iconFullscreen,
 	_iconKindName[76:81]:      iconClose,
 	_iconKindLowerName[76:81]: iconClose,
+	_iconKindName[81:85]:      iconDrag,
+	_iconKindLowerName[81:85]: iconDrag,
+	_iconKindName[85:88]:      iconWoL,
+	_iconKindLowerName[85:88]: iconWoL,
 }
 
 var _iconKindNames = []string{
@@ -85,6 +91,8 @@ var _iconKindNames = []string{
 	_iconKindName[58:66],
 	_iconKindName[66:76],
 	_iconKindName[76:81],
+	_iconKindName[81:85],
+	_iconKindName[85:88],
 }
 
 // iconKindString retrieves an enum value from the enum constants string name.

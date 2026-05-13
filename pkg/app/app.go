@@ -164,6 +164,24 @@ type App struct {
 	factoryResetMessage    string
 	factoryResetSuccess    bool
 	hardwareConn           hardwareConnectionState
+	chromeDragging         bool
+	chromeDragStartX       float64
+	chromeDragStartY       float64
+	chromeDragOriginX      float64
+	chromeDragOriginY      float64
+
+	wolOpen            bool
+	wolDevices         []wolDevice
+	wolLabel           string
+	wolMAC             string
+	wolLabelFocused    bool
+	wolMACFocused      bool
+	wolError           string
+	wolSuccess         string
+	wolDeleteConfirm   string
+	wolLoading         bool
+	wolRuntime         ui.Runtime
+
 	launcherRuntime        ui.Runtime
 	overlayRuntime         ui.Runtime
 	settingsRuntime        ui.Runtime
@@ -456,6 +474,10 @@ func (a *App) shouldRunDiscovery() bool {
 func (a *App) Update() error {
 	a.syncDiscoveryLifecycle()
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		if a.wolOpen {
+			a.closeWoLOverlay()
+			return nil
+		}
 		if a.serialConsoleOpen {
 			a.closeSerialConsoleOverlay()
 			a.revealUIFor(1200 * time.Millisecond)
@@ -476,6 +498,12 @@ func (a *App) Update() error {
 			a.revealUIFor(1200 * time.Millisecond)
 			return nil
 		}
+	}
+	if a.wolOpen {
+		a.syncWoLInput()
+		a.syncUIPointer()
+		a.updateTextSelectionDrag()
+		return nil
 	}
 	if a.launcherOpen {
 		a.syncDiscovery()
@@ -536,6 +564,10 @@ func (a *App) syncUIPointer() {
 	justPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	justReleased := inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft)
 	if !pressed && !justPressed && !justReleased {
+		return
+	}
+	if a.wolOpen {
+		a.wolRuntime.HandlePointer(point, pressed, justPressed, justReleased)
 		return
 	}
 	if a.launcherOpen {
@@ -619,6 +651,11 @@ func frameToRGBA(src image.Image) *image.RGBA {
 }
 
 func (a *App) Draw(screen *ebiten.Image) {
+	if a.wolOpen {
+		screen.Fill(a.currentTheme().Background)
+		a.drawWoLOverlay(screen)
+		return
+	}
 	if a.launcherOpen {
 		a.drawLauncher(screen)
 		return
@@ -2272,6 +2309,9 @@ func (a *App) invokeAction(id string) {
 	case "media_close":
 		a.closeMediaOverlay()
 	default:
+		if a.invokeWoLAction(id) {
+			return
+		}
 		if a.invokeMediaAction(id) {
 			return
 		}
@@ -3724,9 +3764,20 @@ func (a *App) syncSessionState() {
 	a.lastPhase = phase
 }
 
+func parseHostPort(baseURL string) (string, error) {
+	baseURL = strings.TrimPrefix(baseURL, "http://")
+	baseURL = strings.TrimPrefix(baseURL, "https://")
+	host := strings.Split(baseURL, "/")[0]
+	host = strings.Split(host, ":")[0]
+	if host == "" {
+		return "", fmt.Errorf("empty host")
+	}
+	return host, nil
+}
+
 func (a *App) syncWindowTitle() {
 	if a.launcherOpen {
-		title := "jetkvm-desktop"
+		title := "JetKVM"
 		if title != a.lastTitle {
 			ebiten.SetWindowTitle(title)
 			a.lastTitle = title
@@ -3737,13 +3788,18 @@ func (a *App) syncWindowTitle() {
 		return
 	}
 	snap := a.ctrl.Snapshot()
-	title := "jetkvm-desktop"
-	if snap.DeviceID != "" {
-		title = snap.DeviceID
-	} else if snap.Hostname != "" {
-		title = snap.Hostname
+	host := a.cfg.BaseURL
+	if h, err := parseHostPort(host); err == nil {
+		host = h
 	}
-	title = fmt.Sprintf("%s [%s]", title, snap.Phase.String())
+	label := host
+	if snap.Hostname != "" {
+		label = snap.Hostname
+	} else if snap.DeviceID != "" {
+		label = snap.DeviceID
+	}
+	phase := snap.Phase.String()
+	title := fmt.Sprintf("JetKVM [%s - %s]", label, phase)
 	if title == a.lastTitle {
 		return
 	}
@@ -4155,7 +4211,6 @@ func (a *App) connectFromLauncher(target string) {
 	a.pendingTarget = baseURL
 	a.launcherInput = baseURL
 	a.launcherOpen = false
-
 	a.connectTo(baseURL)
 }
 

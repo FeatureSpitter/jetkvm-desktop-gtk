@@ -33,6 +33,9 @@ type Preferences struct {
 	ScrollThrottleMs          int                `json:"scroll_throttle_ms,omitempty"`
 	PointerMoveThrottleMs     int                `json:"pointer_move_throttle_ms,omitempty"`
 	CaptureToggleKey          string             `json:"capture_toggle_key,omitempty"`
+	ChromeCustomX             float64            `json:"chrome_custom_x,omitempty"`
+	ChromeCustomY             float64            `json:"chrome_custom_y,omitempty"`
+	ChromeCustomPos           bool               `json:"chrome_custom_pos,omitempty"`
 	RecentConnections         []RecentConnection `json:"recent_connections,omitempty"`
 }
 
@@ -266,6 +269,7 @@ func (p *Preferences) sortRecentConnections() {
 		return 0
 	})
 }
+
 
 const defaultCaptureToggleKey = "ScrollLock"
 

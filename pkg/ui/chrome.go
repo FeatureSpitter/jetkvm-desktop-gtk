@@ -18,6 +18,8 @@ const (
 	IconSettings
 	IconFullscreen
 	IconClose
+	IconDrag
+	IconWoL
 )
 
 type IconButton struct {
@@ -159,6 +161,15 @@ func drawIcon(ctx *Context, kind IconKind, r Rect, clr color.Color, active bool)
 	case IconClose:
 		ctx.StrokeLine(Point{left, top}, Point{right, bottom}, 1.8, clr)
 		ctx.StrokeLine(Point{right, top}, Point{left, bottom}, 1.8, clr)
+	case IconDrag:
+		for _, dy := range []float64{-4, 0, 4} {
+			ctx.FillCircle(Point{cx - 3, cy + dy}, 1.5, clr)
+			ctx.FillCircle(Point{cx + 3, cy + dy}, 1.5, clr)
+		}
+	case IconWoL:
+		ctx.StrokeLine(Point{cx + 2, top}, Point{cx - 2, cy - 1}, 1.8, clr)
+		ctx.StrokeLine(Point{cx - 2, cy - 1}, Point{cx + 2, cy + 1}, 1.8, clr)
+		ctx.StrokeLine(Point{cx + 2, cy + 1}, Point{cx - 2, bottom}, 1.8, clr)
 	}
 }
 
