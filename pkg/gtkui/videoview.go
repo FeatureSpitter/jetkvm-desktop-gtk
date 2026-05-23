@@ -154,6 +154,10 @@ func (v *VideoView) setupInput() {
 		if v.ctrl == nil || v.isPasteInProgress() {
 			return true
 		}
+		if hid, ok := gtkKeycodeToHID[keycode]; ok {
+			_ = v.ctrl.SendKeypress(hid, true)
+			return true
+		}
 		if key, ok := gdkKeyToInputKey(keyval); ok {
 			if hid, ok := input.KeyToHID(key); ok {
 				_ = v.ctrl.SendKeypress(hid, true)
@@ -164,6 +168,10 @@ func (v *VideoView) setupInput() {
 	})
 	keyCtrl.ConnectKeyReleased(func(keyval, keycode uint, state gdk.ModifierType) {
 		if v.ctrl == nil || v.isPasteInProgress() {
+			return
+		}
+		if hid, ok := gtkKeycodeToHID[keycode]; ok {
+			_ = v.ctrl.SendKeypress(hid, false)
 			return
 		}
 		if key, ok := gdkKeyToInputKey(keyval); ok {

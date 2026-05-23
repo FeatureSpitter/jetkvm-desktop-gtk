@@ -63,6 +63,70 @@ const (
 	gdkSuperR       = 0xffec
 )
 
+// gtkKeycodeToHID maps a GTK hardware keycode (evdev + 8 on Linux) directly
+// to a USB HID scancode. This gives us the physical key position, which is
+// what a KVM must forward — the remote OS applies its own layout.
+var gtkKeycodeToHID = map[uint]byte{
+	9: 41, // Escape
+	10: 30, 11: 31, 12: 32, 13: 33, 14: 34, 15: 35, 16: 36, 17: 37, 18: 38, 19: 39, // 1-0
+	20: 45, // Minus
+	21: 46, // Equal
+	22: 42, // Backspace
+	23: 43, // Tab
+	24: 20, 25: 26, 26: 8, 27: 21, 28: 23, 29: 28, 30: 24, 31: 12, 32: 18, 33: 19, // Q-P
+	34: 47, // LeftBracket
+	35: 48, // RightBracket
+	36: 40, // Enter
+	37: 224, // ControlLeft
+	38: 4, 39: 22, 40: 7, 41: 9, 42: 10, 43: 11, 44: 13, 45: 14, 46: 15, // A-L
+	47: 51, // Semicolon
+	48: 52, // Apostrophe
+	49: 53, // GraveAccent
+	50: 225, // ShiftLeft
+	51: 49, // Backslash
+	52: 29, 53: 27, 54: 6, 55: 25, 56: 5, 57: 17, 58: 16, // Z-M
+	59: 54, // Comma
+	60: 55, // Period
+	61: 56, // Slash
+	62: 229, // ShiftRight
+	63: 85, // NumpadMultiply
+	64: 226, // AltLeft
+	65: 44, // Space
+	66: 57, // CapsLock
+	67: 58, 68: 59, 69: 60, 70: 61, 71: 62, 72: 63, 73: 64, 74: 65, 75: 66, 76: 67, // F1-F10
+	77: 83,  // NumLock
+	78: 71,  // ScrollLock
+	79: 95, 80: 96, 81: 97, // Numpad7-9
+	82: 86, // NumpadSubtract
+	83: 92, 84: 93, 85: 94, // Numpad4-6
+	86: 87, // NumpadAdd
+	87: 89, 88: 90, 89: 91, // Numpad1-3
+	90: 98,  // Numpad0
+	91: 99,  // NumpadDecimal
+	94: 100, // IntlBackslash (ISO key between LShift and Z)
+	95: 68,  // F11
+	96: 69,  // F12
+	104: 88,  // NumpadEnter
+	105: 228, // ControlRight
+	106: 84,  // NumpadDivide
+	107: 70,  // PrintScreen
+	108: 230, // AltRight
+	110: 74,  // Home
+	111: 82,  // Up
+	112: 75,  // PageUp
+	113: 80,  // Left
+	114: 79,  // Right
+	115: 77,  // End
+	116: 81,  // Down
+	117: 78,  // PageDown
+	118: 73,  // Insert
+	119: 76,  // Delete
+	127: 72,  // Pause
+	133: 227, // SuperLeft
+	134: 231, // SuperRight
+	135: 101, // ContextMenu
+}
+
 func gdkKeyToInputKey(keyval uint) (input.Key, bool) {
 	// Lowercase letters a-z
 	if keyval >= gdkA && keyval <= gdkZ {

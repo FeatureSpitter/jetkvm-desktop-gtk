@@ -51,3 +51,41 @@ func TestGDKKeyToInputKey_Unknown(t *testing.T) {
 		t.Error("expected ok=false for unknown keyval 0xdead")
 	}
 }
+
+func TestGtkKeycodeToHID(t *testing.T) {
+	tests := []struct {
+		keycode uint
+		wantHID byte
+		label   string
+	}{
+		{9, 41, "Escape"},
+		{10, 30, "1"},
+		{19, 39, "0"},
+		{20, 45, "Minus (physical)"},
+		{21, 46, "Equal (physical)"},
+		{36, 40, "Enter"},
+		{38, 4, "A"},
+		{65, 44, "Space"},
+		{94, 100, "IntlBackslash (ISO)"},
+		{95, 68, "F11"},
+		{108, 230, "AltRight"},
+		{133, 227, "SuperLeft"},
+	}
+	for _, tt := range tests {
+		hid, ok := gtkKeycodeToHID[tt.keycode]
+		if !ok {
+			t.Errorf("gtkKeycodeToHID[%d] (%s) missing", tt.keycode, tt.label)
+			continue
+		}
+		if hid != tt.wantHID {
+			t.Errorf("gtkKeycodeToHID[%d] (%s) = %d, want %d", tt.keycode, tt.label, hid, tt.wantHID)
+		}
+	}
+}
+
+func TestGtkKeycodeToHID_Unknown(t *testing.T) {
+	_, ok := gtkKeycodeToHID[9999]
+	if ok {
+		t.Error("expected missing entry for unknown keycode 9999")
+	}
+}
