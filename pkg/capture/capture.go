@@ -3,6 +3,7 @@ package capture
 // KeyEvent describes a key press/release captured at the OS level.
 type KeyEvent struct {
 	Keysym  uint32
+	Keycode uint32
 	Pressed bool
 }
 

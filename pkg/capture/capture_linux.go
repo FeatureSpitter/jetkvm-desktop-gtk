@@ -47,16 +47,16 @@ static int x11_pump_one(Display *dpy, Window target) {
 	return 1;
 }
 
-// Like x11_pump_one but returns keysym instead of forwarding.
-// out_keysym and out_pressed are set for key events.
+// Like x11_pump_one but returns keysym and hardware keycode instead of forwarding.
 // Returns: 0=no event, 1=key event, 2=other event (ignored).
-static int x11_pump_key(Display *dpy, unsigned long *out_keysym, int *out_pressed) {
+static int x11_pump_key(Display *dpy, unsigned long *out_keysym, unsigned int *out_keycode, int *out_pressed) {
 	if (XPending(dpy) == 0)
 		return 0;
 	XEvent ev;
 	XNextEvent(dpy, &ev);
 	if (ev.type == KeyPress || ev.type == KeyRelease) {
 		*out_keysym = (unsigned long)XLookupKeysym(&ev.xkey, 0);
+		*out_keycode = ev.xkey.keycode;
 		*out_pressed = (ev.type == KeyPress) ? 1 : 0;
 		return 1;
 	}
@@ -222,15 +222,17 @@ func (g *x11Grabber) pump() {
 func (g *x11Grabber) pumpCallback() {
 	defer close(g.done)
 	var keysym C.ulong
+	var keycode C.uint
 	var pressed C.int
 	for g.grabbed.Load() {
-		rc := C.x11_pump_key(g.display, &keysym, &pressed)
+		rc := C.x11_pump_key(g.display, &keysym, &keycode, &pressed)
 		switch rc {
 		case 0:
 			time.Sleep(time.Millisecond)
 		case 1:
 			evt := KeyEvent{
 				Keysym:  uint32(keysym),
+				Keycode: uint32(keycode),
 				Pressed: pressed != 0,
 			}
 			if g.keyCb != nil {

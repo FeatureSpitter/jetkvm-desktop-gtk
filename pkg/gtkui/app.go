@@ -624,6 +624,10 @@ func (a *Application) activateCapture() {
 			return false
 		}
 
+		if hid, ok := gtkKeycodeToHID[uint(evt.Keycode)]; ok {
+			_ = a.ctrl.SendKeypress(hid, evt.Pressed)
+			return true
+		}
 		if key, ok := x11KeysymToInputKey(evt.Keysym); ok {
 			if hid, ok := input.KeyToHID(key); ok {
 				_ = a.ctrl.SendKeypress(hid, evt.Pressed)
