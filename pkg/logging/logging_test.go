@@ -33,17 +33,23 @@ func TestSubsystem(t *testing.T) {
 	}
 }
 
+func resetFileOut(t *testing.T, origResolve func() (string, error)) {
+	t.Helper()
+	resolveLogPathFunc = origResolve
+	if fileOut != nil {
+		fileOut.Close()
+		fileOut = nil
+	}
+	logPath = ""
+}
+
 func TestFileLogging_WritesAndAppends(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.log")
 
 	origResolve := resolveLogPathFunc
 	resolveLogPathFunc = func() (string, error) { return path, nil }
-	t.Cleanup(func() {
-		resolveLogPathFunc = origResolve
-		fileOut = nil
-		logPath = ""
-	})
+	t.Cleanup(func() { resetFileOut(t, origResolve) })
 
 	fileOut = nil
 	logPath = ""
@@ -81,11 +87,7 @@ func TestFileLogging_StdlibAlsoWritesToFile(t *testing.T) {
 
 	origResolve := resolveLogPathFunc
 	resolveLogPathFunc = func() (string, error) { return path, nil }
-	t.Cleanup(func() {
-		resolveLogPathFunc = origResolve
-		fileOut = nil
-		logPath = ""
-	})
+	t.Cleanup(func() { resetFileOut(t, origResolve) })
 
 	fileOut = nil
 	logPath = ""
@@ -110,11 +112,7 @@ func TestFileLogging_SurvivesReconfigure(t *testing.T) {
 
 	origResolve := resolveLogPathFunc
 	resolveLogPathFunc = func() (string, error) { return path, nil }
-	t.Cleanup(func() {
-		resolveLogPathFunc = origResolve
-		fileOut = nil
-		logPath = ""
-	})
+	t.Cleanup(func() { resetFileOut(t, origResolve) })
 
 	fileOut = nil
 	logPath = ""
@@ -150,11 +148,7 @@ func TestLogFilePath(t *testing.T) {
 
 	origResolve := resolveLogPathFunc
 	resolveLogPathFunc = func() (string, error) { return path, nil }
-	t.Cleanup(func() {
-		resolveLogPathFunc = origResolve
-		fileOut = nil
-		logPath = ""
-	})
+	t.Cleanup(func() { resetFileOut(t, origResolve) })
 
 	fileOut = nil
 	logPath = ""
