@@ -15,20 +15,23 @@ runs:
       shell: bash
       run: |
         packages=(
-          libgtk-3-dev
+          libgtk-4-dev
+          libepoxy-dev
           libx11-dev
-          libxcursor-dev
-          libxrandr-dev
-          libxinerama-dev
-          libxi-dev
           libgl1-mesa-dev
-          libxxf86vm-dev
+          pkg-config
         )
         if [[ "${{ inputs.install-xvfb }}" == "true" ]]; then
           packages=(xvfb "${packages[@]}")
         fi
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends "${packages[@]}"
+
+    - name: Install macOS GUI build dependencies
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install gtk4 libepoxy pkg-config
 
     - name: Set up Windows MinGW toolchain
       if: runner.os == 'Windows'
@@ -41,6 +44,9 @@ runs:
         install: >-
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-gcc-libs
+          mingw-w64-x86_64-gtk4
+          mingw-w64-x86_64-libepoxy
+          mingw-w64-x86_64-pkg-config
 
     - name: Prepend Windows MinGW toolchain to PATH
       if: runner.os == 'Windows'

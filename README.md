@@ -68,7 +68,9 @@ If the device requires a password, the app will prompt for it.
 
 ## Platform Support
 
-Currently **Linux only** (GTK4 + X11). macOS and Windows support is planned using GTK4 as well — platform-specific code (capture, window management) already has stubs for all three platforms.
+**Linux** (GTK4 + X11) is the primary development target with full feature support including X11 window centering and total input capture via keyboard grabs.
+
+**macOS** and **Windows** are supported via GTK4's native backends. Total input capture uses platform-specific APIs (CGEventTap on macOS, low-level hooks on Windows). Window centering falls back to GTK4's default placement on these platforms.
 
 Wayland support depends on GTK4's Wayland backend maturity and input capture protocol availability.
 
