@@ -2,6 +2,7 @@ package gtkui
 
 import (
 	"image"
+	"log"
 	"sync"
 	"time"
 
@@ -157,15 +158,18 @@ func (v *VideoView) setupInput() {
 			return true
 		}
 		if hid, ok := gtkKeycodeToHID[keycode]; ok {
+			log.Printf("[input] key DOWN  keycode=%d keyval=0x%04x hid=0x%02x (via keycode)", keycode, keyval, hid)
 			_ = v.ctrl.SendKeypress(hid, true)
 			return true
 		}
 		if key, ok := gdkKeyToInputKey(keyval); ok {
 			if hid, ok := input.KeyToHID(key); ok {
+				log.Printf("[input] key DOWN  keycode=%d keyval=0x%04x hid=0x%02x (via keyval)", keycode, keyval, hid)
 				_ = v.ctrl.SendKeypress(hid, true)
 				return true
 			}
 		}
+		log.Printf("[input] key DOWN  keycode=%d keyval=0x%04x UNMAPPED", keycode, keyval)
 		return false
 	})
 	keyCtrl.ConnectKeyReleased(func(keyval, keycode uint, state gdk.ModifierType) {
@@ -173,11 +177,13 @@ func (v *VideoView) setupInput() {
 			return
 		}
 		if hid, ok := gtkKeycodeToHID[keycode]; ok {
+			log.Printf("[input] key UP    keycode=%d keyval=0x%04x hid=0x%02x (via keycode)", keycode, keyval, hid)
 			_ = v.ctrl.SendKeypress(hid, false)
 			return
 		}
 		if key, ok := gdkKeyToInputKey(keyval); ok {
 			if hid, ok := input.KeyToHID(key); ok {
+				log.Printf("[input] key UP    keycode=%d keyval=0x%04x hid=0x%02x (via keyval)", keycode, keyval, hid)
 				_ = v.ctrl.SendKeypress(hid, false)
 			}
 		}
@@ -215,6 +221,7 @@ func (v *VideoView) setupInput() {
 			}
 			v.GLArea.GrabFocus()
 			v.buttons |= mouseButton(capturedBtn)
+			log.Printf("[input] mouse DOWN btn=%d hid=0x%02x at (%.0f,%.0f)", capturedBtn, mouseButton(capturedBtn), x, y)
 			v.sendAbsPointer(x, y, v.buttons)
 		})
 		clickCtrl.ConnectReleased(func(n int, x, y float64) {
@@ -222,6 +229,7 @@ func (v *VideoView) setupInput() {
 				return
 			}
 			v.buttons &^= mouseButton(capturedBtn)
+			log.Printf("[input] mouse UP   btn=%d hid=0x%02x at (%.0f,%.0f)", capturedBtn, mouseButton(capturedBtn), x, y)
 			v.sendAbsPointer(x, y, v.buttons)
 		})
 		v.GLArea.AddController(clickCtrl)
@@ -348,6 +356,7 @@ func (v *VideoView) flushScroll() {
 		return
 	}
 
+	log.Printf("[input] scroll wy=%d wx=%d", wy, wx)
 	ctrl := v.ctrl
 	go func() {
 		_ = ctrl.SendWheel(wy, wx)

@@ -179,9 +179,9 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 				stream.publish(Frame{Image: img, At: time.Now()})
 				frameCount++
 			}
-			if time.Since(lastLog) >= time.Second {
-				log.Printf("[video] %d frames/sec, %d dropped samples, max decode %v",
-					frameCount, dropCount, maxDecodeDur)
+			if time.Since(lastLog) >= 10*time.Second {
+				log.Printf("[video] %d frames/sec (avg over 10s), %d dropped samples, max decode %v",
+					frameCount/10, dropCount, maxDecodeDur)
 				frameCount = 0
 				dropCount = 0
 				maxDecodeDur = 0

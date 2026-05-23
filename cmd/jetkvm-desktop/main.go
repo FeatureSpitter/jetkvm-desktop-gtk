@@ -8,6 +8,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -86,13 +87,23 @@ func main() {
 				}()
 			}
 
-			os.Exit(gtkui.Run(cfg))
+			log.Printf("starting jetkvm-desktop (log file: %s)", logging.LogFilePath())
+			exitCode := func() (code int) {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("FATAL PANIC: %v\n%s", r, debug.Stack())
+						code = 1
+					}
+				}()
+				return gtkui.Run(cfg)
+			}()
+			os.Exit(exitCode)
 			return nil
 		},
 	}
 	rootCmd.Flags().BoolVar(&passwordFromStdin, "password-stdin", false, "Read password for local auth mode from stdin")
 	rootCmd.Flags().StringVar(&passwordEnv, "password-env", "", fmt.Sprintf("Read password for local auth mode from the named environment variable (default fallback: %s)", defaultPasswordEnv))
-	rootCmd.Flags().StringVar(&logLevel, "log-level", "", fmt.Sprintf("Log level: error, warn, info, debug, trace (default: error; env: JETKVM_DESKTOP_LOG_LEVEL; experimental USB network UI env: %s)", experimentalUSBNetworkEnv))
+	rootCmd.Flags().StringVar(&logLevel, "log-level", "", fmt.Sprintf("Log level: error, warn, info, debug, trace (default: info; env: JETKVM_DESKTOP_LOG_LEVEL; experimental USB network UI env: %s)", experimentalUSBNetworkEnv))
 	rootCmd.Flags().DurationVar(&cfg.RPCTimeout, "rpc-timeout", 5*time.Second, "Timeout for JSON-RPC requests")
 
 	if err := rootCmd.Execute(); err != nil {

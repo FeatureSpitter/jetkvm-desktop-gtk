@@ -30,7 +30,7 @@ Full feature parity with the upstream client, plus additional improvements:
 
 - **GPU-accelerated video** — YCbCr → RGB conversion via OpenGL ES 3.0 fragment shaders
 - **Native GTK4 UI** — launcher, settings, overlays, floating menu, theme support (dark/light/system)
-- **Total input capture** — X11 keyboard grab with direct HID scancode forwarding (F12/ScrollLock toggle)
+- **Total input capture** — X11 keyboard grab with direct HID scancode forwarding (ScrollLock toggle, configurable)
 - **Prioritized network discovery** — physical NICs first, then VPNs/containers/Docker networks
 - **Configurable paste** — per-keystroke delay, 19 keyboard layouts, unsupported character preview
 - **Wake-on-LAN** — overlay with device management via KVM RPC

@@ -3,7 +3,11 @@ package gtkui
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,6 +15,7 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/discovery"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 )
 
@@ -173,6 +178,18 @@ func (l *Launcher) buildBrowsePage() {
 	l.connectingBox.Append(l.connectSpinner)
 	l.connectingBox.Append(l.connectingLbl)
 	l.browsePage.Append(l.connectingBox)
+
+	if logFile := logging.LogFilePath(); logFile != "" {
+		logBtn := gtk.NewButtonWithLabel("View Logs")
+		logBtn.AddCSSClass("flat")
+		logBtn.AddCSSClass("dim-label")
+		logBtn.SetMarginTop(12)
+		logBtn.SetHAlign(gtk.AlignCenter)
+		logBtn.ConnectClicked(func() {
+			openLogFile(logFile)
+		})
+		l.browsePage.Append(logBtn)
+	}
 }
 
 func (l *Launcher) buildPasswordPage() {
@@ -511,4 +528,32 @@ func removeAllChildren(list *gtk.ListBox) {
 		}
 		list.Remove(row)
 	}
+}
+
+func openLogFile(path string) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			log.Printf("failed to create log dir: %v", err)
+			return
+		}
+		if err := os.WriteFile(path, []byte("(no log entries yet)\n"), 0o644); err != nil {
+			log.Printf("failed to create log file: %v", err)
+			return
+		}
+	}
+	for _, cmd := range [][]string{
+		{"code", path},
+		{"xdg-open", path},
+	} {
+		bin, lookErr := exec.LookPath(cmd[0])
+		if lookErr != nil {
+			continue
+		}
+		if err := exec.Command(bin, cmd[1:]...).Start(); err != nil {
+			log.Printf("failed to open log file with %s: %v", cmd[0], err)
+			continue
+		}
+		return
+	}
+	log.Printf("no suitable editor found to open %s", path)
 }
