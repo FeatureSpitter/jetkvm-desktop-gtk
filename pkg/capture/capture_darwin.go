@@ -50,6 +50,7 @@ type darwinGrabber struct {
 	source   C.CFRunLoopSourceRef
 	runLoop  C.CFRunLoopRef
 	stopCh   chan struct{}
+	keyCb    KeyCallback
 }
 
 // New returns a Grabber that uses macOS CGEventTap.
@@ -77,12 +78,25 @@ func eventTapCallback(proxy C.CGEventTapProxy, eventType C.CGEventType, event C.
 		return event
 	}
 
-	// Suppress the event from reaching the system; Ebiten still receives
-	// input via its own NSApplication event handling.
+	if activeDarwinGrabber.keyCb != nil {
+		switch eventType {
+		case C.kCGEventKeyDown, C.kCGEventKeyUp:
+			keycode := uint32(C.CGEventGetIntegerValueField(event, C.kCGKeyboardEventKeycode))
+			evt := KeyEvent{
+				Keycode: keycode,
+				Pressed: eventType == C.kCGEventKeyDown,
+			}
+			activeDarwinGrabber.keyCb(evt)
+		}
+	}
+
 	return C.CGEventRef(C.NULL)
 }
 
 func (g *darwinGrabber) GrabWithCallback(cb KeyCallback) error {
+	g.mu.Lock()
+	g.keyCb = cb
+	g.mu.Unlock()
 	return g.Grab()
 }
 
@@ -147,6 +161,7 @@ func (g *darwinGrabber) Release() error {
 	}
 
 	g.grabbed = false
+	g.keyCb = nil
 	activeDarwinGrabber = nil
 
 	if g.stopCh != nil {
