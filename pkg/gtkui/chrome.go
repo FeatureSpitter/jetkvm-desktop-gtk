@@ -42,9 +42,10 @@ type Chrome struct {
 	Box    *gtk.Box
 	handle *gtk.Image
 
-	app      *Application
-	buttons  map[chromeAction]*gtk.Button
-	vertical bool
+	app             *Application
+	buttons         map[chromeAction]*gtk.Button
+	takeBackBtn     *gtk.Button
+	vertical        bool
 
 	dragging   bool
 	didDrag    bool
@@ -87,6 +88,12 @@ func NewChrome(app *Application) *Chrome {
 	c.handle.AddCSSClass("chrome-btn")
 	c.handle.AddCSSClass("chrome-handle")
 	c.handle.SetCursorFromName("grab")
+
+	c.takeBackBtn = gtk.NewButtonWithLabel("Take Back Control")
+	c.takeBackBtn.AddCSSClass("destructive-action")
+	c.takeBackBtn.SetVisible(false)
+	c.takeBackBtn.ConnectClicked(func() { c.onTakeBackControl() })
+	c.Box.Append(c.takeBackBtn)
 
 	for _, def := range chromeButtons {
 		btn := gtk.NewButtonFromIconName(def.icon)
@@ -254,12 +261,20 @@ func (c *Chrome) onAction(action chromeAction) {
 	}
 }
 
-func (c *Chrome) UpdateVisibility(connected, serialActive, captureSupported bool) {
+func (c *Chrome) UpdateVisibility(connected, serialActive, captureSupported, otherSession bool) {
 	c.buttons[chromePaste].SetVisible(connected)
 	c.buttons[chromeMedia].SetVisible(connected)
 	c.buttons[chromeSerial].SetVisible(connected && serialActive)
 	c.buttons[chromeWoL].SetVisible(connected)
 	c.buttons[chromeCapture].SetVisible(connected && captureSupported)
+	c.takeBackBtn.SetVisible(otherSession)
+}
+
+func (c *Chrome) onTakeBackControl() {
+	if c.app.ctrl == nil {
+		return
+	}
+	c.app.ctrl.ReconnectNow()
 }
 
 func absF(f float64) float64 {

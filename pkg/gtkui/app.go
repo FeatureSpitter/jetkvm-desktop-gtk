@@ -539,7 +539,8 @@ func (a *Application) pollState() {
 	connected := snap.Phase == session.PhaseConnected
 	serialActive := snap.ActiveExtension == "serial-console"
 	captureSupported := a.grabber.IsSupported()
-	a.chrome.UpdateVisibility(connected, serialActive, captureSupported)
+	otherSession := snap.Phase == session.PhaseOtherSession
+	a.chrome.UpdateVisibility(connected, serialActive, captureSupported, otherSession)
 
 	a.pasteBanner.SetVisible(snap.PasteInProgress && a.activeOverlay == "")
 }

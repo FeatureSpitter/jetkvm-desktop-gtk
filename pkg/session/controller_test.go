@@ -58,7 +58,7 @@ func TestControllerReconnectsAfterDisconnect(t *testing.T) {
 	defer controller.Stop()
 
 	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
-	if err := controller.forceDisconnect(context.Background()); err != nil {
+	if err := controller.ForceDisconnect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
@@ -91,6 +91,39 @@ func TestControllerTransitionsToOtherSession(t *testing.T) {
 
 	first.ReconnectNow()
 	waitForPhase(t, first, PhaseConnected, 5*time.Second)
+}
+
+func TestOtherSession_TakeBackControl_ReconnectsAsUs(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	first := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	second := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+
+	first.Start(ctx)
+	defer first.Stop()
+	waitForPhase(t, first, PhaseConnected, 5*time.Second)
+
+	second.Start(ctx)
+	defer second.Stop()
+	waitForPhase(t, second, PhaseConnected, 5*time.Second)
+	waitForPhase(t, first, PhaseOtherSession, 5*time.Second)
+
+	// "Take back control": reconnect (the new WebSocket connection
+	// implicitly kicks the other session off).
+	first.ReconnectNow()
+	waitForPhase(t, first, PhaseConnected, 5*time.Second)
+	waitForPhase(t, second, PhaseOtherSession, 5*time.Second)
 }
 
 func TestControllerReceivesVideoAndForwardsInput(t *testing.T) {

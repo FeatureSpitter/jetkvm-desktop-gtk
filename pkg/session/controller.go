@@ -2183,7 +2183,9 @@ func (c *Controller) clientIfConnected() *client.Client {
 	return c.current
 }
 
-func (c *Controller) forceDisconnect(ctx context.Context) error {
+// ForceDisconnect sends a force-disconnect request to the device, kicking
+// the other session so we can reconnect.
+func (c *Controller) ForceDisconnect(ctx context.Context) error {
 	current := c.clientIfConnected()
 	if current == nil {
 		return errors.New("client not connected")
