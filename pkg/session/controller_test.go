@@ -631,6 +631,240 @@ func TestIsAuthErrorMatchesDeviceMessages(t *testing.T) {
 	}
 }
 
+// --- Lifecycle integration tests ---
+
+func TestPhase_IdleToConnected(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+
+	if controller.Snapshot().Phase != PhaseIdle {
+		t.Fatalf("initial phase = %v, want Idle", controller.Snapshot().Phase)
+	}
+
+	controller.Start(ctx)
+	defer controller.Stop()
+
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+}
+
+func TestPhase_ConnectedToReconnecting(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:       srv.BaseURL(),
+		Password:      "secret",
+		RPCTimeout:    2 * time.Second,
+		Reconnect:     true,
+		ReconnectBase: 100 * time.Millisecond,
+		ReconnectMax:  300 * time.Millisecond,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	// Force a disconnection -- controller should transition to reconnecting
+	if err := controller.ForceDisconnect(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should reconnect and get back to connected
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+}
+
+func TestAuthFailed_NeverRetries(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:       srv.BaseURL(),
+		Password:      "wrong",
+		RPCTimeout:    2 * time.Second,
+		Reconnect:     true,
+		ReconnectBase: 50 * time.Millisecond,
+		ReconnectMax:  100 * time.Millisecond,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+
+	waitForPhase(t, controller, PhaseAuthFailed, 5*time.Second)
+
+	// Wait long enough that a reconnect would fire if it was going to
+	time.Sleep(500 * time.Millisecond)
+	if controller.Snapshot().Phase != PhaseAuthFailed {
+		t.Fatalf("phase changed from AuthFailed to %v — should never retry", controller.Snapshot().Phase)
+	}
+}
+
+// --- RPC contract round-trip tests ---
+
+func TestControllerEDIDRoundTrip(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	testEDID := "00ffffffffffff00"
+	if err := controller.SetEDID(testEDID); err != nil {
+		t.Fatalf("SetEDID: %v", err)
+	}
+
+	got, err := controller.GetEDID(context.Background())
+	if err != nil {
+		t.Fatalf("GetEDID: %v", err)
+	}
+	if got != testEDID {
+		t.Fatalf("EDID = %q, want %q", got, testEDID)
+	}
+}
+
+func TestControllerVideoCodecRoundTrip(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	if err := controller.SetVideoCodec(VideoCodecH264); err != nil {
+		t.Fatalf("SetVideoCodec: %v", err)
+	}
+
+	got, err := controller.GetVideoCodec(context.Background())
+	if err != nil {
+		t.Fatalf("GetVideoCodec: %v", err)
+	}
+	if got != VideoCodecH264 {
+		t.Fatalf("codec = %v, want H264", got)
+	}
+}
+
+func TestControllerWakeOnLanRoundTrip(t *testing.T) {
+	t.Skip("WakeOnLan RPC not yet implemented in emulator")
+}
+
+func TestControllerJigglerRoundTrip(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	if err := controller.SetJigglerState(true); err != nil {
+		t.Fatalf("SetJigglerState: %v", err)
+	}
+
+	got, err := controller.GetJigglerState(context.Background())
+	if err != nil {
+		t.Fatalf("GetJigglerState: %v", err)
+	}
+	if !got {
+		t.Fatal("jiggler state = false, want true")
+	}
+}
+
+func TestControllerNetworkSettingsRoundTrip(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	settings := NetworkSettings{
+		Hostname: "test-host",
+		Domain:   "local",
+	}
+	if err := controller.SetNetworkSettings(settings); err != nil {
+		t.Fatalf("SetNetworkSettings: %v", err)
+	}
+
+	got, err := controller.GetNetworkSettings(context.Background())
+	if err != nil {
+		t.Fatalf("GetNetworkSettings: %v", err)
+	}
+	if got.Hostname != "test-host" {
+		t.Fatalf("hostname = %q, want test-host", got.Hostname)
+	}
+}
+
+func TestControllerStorageSpaceAndFileLifecycle(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	space, err := controller.GetStorageSpace(context.Background())
+	if err != nil {
+		t.Fatalf("GetStorageSpace: %v", err)
+	}
+	if space.BytesFree == 0 && space.BytesUsed == 0 {
+		t.Fatal("storage space should report non-zero values")
+	}
+}
+
+func TestControllerRenewDHCPLease(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+
+	if err := controller.RenewDHCPLease(); err != nil {
+		t.Fatalf("RenewDHCPLease: %v", err)
+	}
+}
+
 func TestControllerAuthFailedWithWrongPassword(t *testing.T) {
 	srv, ctx, cancel := startEmulator(t)
 	defer cancel()
