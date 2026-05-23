@@ -21,7 +21,6 @@ type SettingsVideo struct {
 	btnQLow  *gtk.ToggleButton
 
 	btnCAuto *gtk.ToggleButton
-	btnCH265 *gtk.ToggleButton
 	btnCH264 *gtk.ToggleButton
 
 	lblEDID    *gtk.Label
@@ -73,15 +72,11 @@ func NewSettingsVideo(app *Application) *SettingsVideo {
 
 	cRow := gtk.NewBox(gtk.OrientationHorizontal, 4)
 	s.btnCAuto = gtk.NewToggleButtonWithLabel("Auto")
-	s.btnCH265 = gtk.NewToggleButtonWithLabel("H.265")
 	s.btnCH264 = gtk.NewToggleButtonWithLabel("H.264")
-	s.btnCH265.SetGroup(s.btnCAuto)
 	s.btnCH264.SetGroup(s.btnCAuto)
 	s.btnCAuto.ConnectClicked(func() { s.setCodec(session.VideoCodecAuto) })
-	s.btnCH265.ConnectClicked(func() { s.setCodec(session.VideoCodecH265) })
 	s.btnCH264.ConnectClicked(func() { s.setCodec(session.VideoCodecH264) })
 	cRow.Append(s.btnCAuto)
-	cRow.Append(s.btnCH265)
 	cRow.Append(s.btnCH264)
 	s.Box.Append(cRow)
 
@@ -159,8 +154,6 @@ func (s *SettingsVideo) Refresh() {
 		return
 	}
 	switch codec {
-	case session.VideoCodecH265:
-		s.btnCH265.SetActive(true)
 	case session.VideoCodecH264:
 		s.btnCH264.SetActive(true)
 	default:
