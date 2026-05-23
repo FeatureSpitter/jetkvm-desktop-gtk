@@ -228,7 +228,6 @@ func (c *Chrome) flipOrientation() {
 }
 
 // ApplyPosition sets chrome to default position.
-// Old prefs used absolute X coords (for Ebiten), not compatible with GTK margins.
 func (c *Chrome) ApplyPosition() {
 	c.marginX = 8
 	c.marginY = 8

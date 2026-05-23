@@ -78,7 +78,7 @@ type windowManager struct {
 func NewManager() Manager {
 	return &windowManager{
 		capability: Capability{
-			Backend:            "ebiten",
+			Backend:            "gtk",
 			Scope:              ScopeWindow,
 			GlobalRegistration: false,
 			LocalSuppression:   true,

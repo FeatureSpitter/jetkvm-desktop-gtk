@@ -300,7 +300,7 @@ Left sidebar (12 sections) + content panel + **X** close button.
 - Toggle: **Show Pressed Keys**
 - Total Capture toggle key selector: F1–F12, Pause, ScrollLock
 - Toggle: **Enable Experimental Remote Hotkeys**
-- Backend label (e.g. `ebiten (window)`)
+- Backend label (e.g. `gtk (window)`)
 - Layout presets (19 layouts): cs-CZ, da-DK, de-CH, de-DE, en-UK, en-US, es-ES, nl-BE, fr-CH, fr-FR, hu-HU, it-IT, ja-JP, nb-NO, pl-PL, pt-PT, sv-SE, sl-SI, ru-RU
 - Shortcut chord reference: Ctrl+Alt+` → Alt+Tab; Ctrl+Alt+Shift+` → Shift+Alt+Tab
 

@@ -12,8 +12,8 @@ type Decoder interface {
 
 // PackedYCbCr is an image.Image where each pixel is laid out as 4 bytes:
 // Y, Cb, Cr, 0xff. Cb and Cr are nearest-neighbour upsampled to the full
-// resolution so the layout looks like an RGBA buffer to Ebiten but renders
-// to RGB via a YCbCr→RGB fragment shader on the GPU.
+// resolution so the layout matches an RGBA buffer and renders to RGB via
+// a YCbCr→RGB fragment shader on the GPU.
 //
 // Using this avoids ~30 MB/s of CPU work that swscale would otherwise do
 // to produce real RGBA frames.

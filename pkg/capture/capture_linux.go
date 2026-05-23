@@ -17,8 +17,8 @@ static Window x11_focused_window(Display *dpy) {
 }
 
 // Drain one pending event from the grab connection.
-// Key events are forwarded to the target (GLFW) window so Ebiten sees them.
-// Pointer events are also forwarded so the Ebiten mouse pipeline keeps working.
+// Key and pointer events are forwarded to the target window via XSendEvent
+// so the application continues to receive input during a grab.
 // Returns 0 when no event was pending.
 static int x11_pump_one(Display *dpy, Window target) {
 	if (XPending(dpy) == 0)
