@@ -20,10 +20,9 @@ type RecentConnection struct {
 // Preferences stores user-configurable settings.  The JSON layout is
 // compatible with the original pkg/app format so existing configs carry over.
 type Preferences struct {
-	Theme                     string             `json:"theme"`
-	PinChrome                 bool               `json:"pin_chrome"`
-	HideHeaderBar             bool               `json:"hide_header_bar"`
-	HideStatusBar             bool               `json:"hide_status_bar"`
+	Theme         string `json:"theme"`
+	PinChrome     bool   `json:"pin_chrome"`
+	HideStatusBar bool   `json:"hide_status_bar"`
 	ChromeAnchor              string             `json:"chrome_anchor"`
 	ChromeLayout              string             `json:"chrome_layout"`
 	HideCursor                bool               `json:"hide_cursor"`

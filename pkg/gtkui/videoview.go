@@ -35,6 +35,8 @@ type VideoView struct {
 	scrollAccX   float64
 	scrollTimer  bool
 
+	lastPointerSend time.Time
+
 	app  *Application
 	ctrl *session.Controller
 }
@@ -192,11 +194,18 @@ func (v *VideoView) setupInput() {
 		if v.ctrl == nil || v.isPasteInProgress() {
 			return
 		}
+		if v.app != nil && v.app.prefs.PointerMoveThrottleMs > 0 {
+			now := time.Now()
+			if now.Sub(v.lastPointerSend) < time.Duration(v.app.prefs.PointerMoveThrottleMs)*time.Millisecond {
+				return
+			}
+			v.lastPointerSend = now
+		}
 		v.sendAbsPointer(x, y, v.buttons)
 	})
 	v.GLArea.AddController(motionCtrl)
 
-	for _, btn := range []uint{1, 2, 3} {
+	for _, btn := range []uint{1, 2, 3, 8, 9} {
 		clickCtrl := gtk.NewGestureClick()
 		clickCtrl.SetButton(btn)
 		capturedBtn := btn
@@ -229,7 +238,11 @@ func (v *VideoView) setupInput() {
 		v.scrollAccX += dx
 		if !v.scrollTimer {
 			v.scrollTimer = true
-			glib.TimeoutAdd(50, func() bool {
+			throttle := uint(50)
+			if v.app != nil && v.app.prefs.ScrollThrottleMs > 0 {
+				throttle = uint(v.app.prefs.ScrollThrottleMs)
+			}
+			glib.TimeoutAdd(throttle, func() bool {
 				v.flushScroll()
 				return false
 			})
@@ -294,6 +307,10 @@ func mouseButton(gtkBtn uint) byte {
 		return 4 // middle
 	case 3:
 		return 2 // right
+	case 8:
+		return 8 // side back
+	case 9:
+		return 16 // side forward
 	default:
 		return 0
 	}
@@ -308,6 +325,11 @@ func (v *VideoView) flushScroll() {
 
 	if v.ctrl == nil {
 		return
+	}
+
+	if v.app != nil && v.app.prefs.InvertScroll {
+		ay = -ay
+		ax = -ax
 	}
 
 	wy := int8(0)
@@ -330,6 +352,14 @@ func (v *VideoView) flushScroll() {
 	go func() {
 		_ = ctrl.SendWheel(wy, wx)
 	}()
+}
+
+func (v *VideoView) applyCursorPref() {
+	if v.app != nil && v.app.prefs.HideCursor {
+		v.GLArea.SetCursor(gdk.NewCursorFromName("none", nil))
+	} else {
+		v.GLArea.SetCursor(nil)
+	}
 }
 
 func (v *VideoView) isPasteInProgress() bool {

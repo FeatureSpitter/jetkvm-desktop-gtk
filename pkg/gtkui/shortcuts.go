@@ -1,8 +1,13 @@
 package gtkui
 
 import (
+	"log"
+
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
 )
 
 func (a *Application) setupShortcuts() {
@@ -23,6 +28,33 @@ func (a *Application) handleShortcut(keyval uint, state gdk.ModifierType) bool {
 	if keyval == captureToggleGDKKey(a.prefs.CaptureToggleKey) {
 		a.toggleCaptureKey()
 		return true
+	}
+
+	if a.hkManager != nil && a.hkManager.Enabled() && a.ctrl != nil {
+		var pressed []input.Key
+		if state&gdk.ControlMask != 0 {
+			pressed = append(pressed, input.KeyControlLeft)
+		}
+		if state&gdk.AltMask != 0 {
+			pressed = append(pressed, input.KeyAltLeft)
+		}
+		if state&gdk.ShiftMask != 0 {
+			pressed = append(pressed, input.KeyShiftLeft)
+		}
+		if key, ok := gdkKeyToInputKey(keyval); ok {
+			pressed = append(pressed, key)
+		}
+		result := a.hkManager.Update(pressed)
+		for _, action := range result.Actions {
+			go func(act hotkeys.Action) {
+				if err := a.ctrl.ExecuteRemoteHotkey(act); err != nil {
+					log.Printf("[gtkui] hotkey %v failed: %v", act, err)
+				}
+			}(action)
+		}
+		if result.Consumed {
+			return true
+		}
 	}
 
 	return false

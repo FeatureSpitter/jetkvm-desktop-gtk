@@ -1,6 +1,7 @@
 package gtkui
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -76,5 +77,53 @@ func TestPrefsRecentRoundtrip(t *testing.T) {
 	p.removeRecent("https://b.local")
 	if len(p.RecentConnections) != 2 {
 		t.Fatalf("after remove, got %d recents, want 2", len(p.RecentConnections))
+	}
+}
+
+func TestPrefsLegacyHideHeaderBarIgnored(t *testing.T) {
+	raw := `{"hide_header_bar": true, "theme": "dark", "pin_chrome": true}`
+	var p Preferences
+	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+		t.Fatalf("unmarshal legacy prefs: %v", err)
+	}
+	if p.Theme != "dark" {
+		t.Errorf("theme = %q, want dark", p.Theme)
+	}
+	if !p.PinChrome {
+		t.Error("pin_chrome should be true")
+	}
+}
+
+func TestPrefsDefaults(t *testing.T) {
+	p := defaultPrefs()
+	if p.PointerMoveThrottleMs != 8 {
+		t.Errorf("PointerMoveThrottleMs = %d, want 8", p.PointerMoveThrottleMs)
+	}
+	if !p.AbsoluteSideButtonsViaRel {
+		t.Error("AbsoluteSideButtonsViaRel should be true by default")
+	}
+	if p.ConnectWindowMode != "maximize" {
+		t.Errorf("ConnectWindowMode = %q, want maximize", p.ConnectWindowMode)
+	}
+}
+
+func TestMouseButton(t *testing.T) {
+	tests := []struct {
+		gtk  uint
+		want byte
+	}{
+		{1, 1},  // left
+		{2, 4},  // middle
+		{3, 2},  // right
+		{8, 8},  // side back
+		{9, 16}, // side forward
+		{0, 0},  // unknown
+		{99, 0}, // unknown
+	}
+	for _, tt := range tests {
+		got := mouseButton(tt.gtk)
+		if got != tt.want {
+			t.Errorf("mouseButton(%d) = %d, want %d", tt.gtk, got, tt.want)
+		}
 	}
 }

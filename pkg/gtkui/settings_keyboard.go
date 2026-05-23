@@ -126,6 +126,9 @@ func (s *SettingsKeyboard) apply() {
 	p := &s.app.prefs
 	p.ShowPressedKeys = s.swShowKeys.Active()
 	p.ExperimentalGlobalHotkeys = s.swRemoteHkeys.Active()
+	if s.app.hkManager != nil {
+		s.app.hkManager.SetEnabled(p.ExperimentalGlobalHotkeys)
+	}
 
 	idx := s.ddCaptureKey.Selected()
 	if idx < uint(len(s.captureKeys)) {

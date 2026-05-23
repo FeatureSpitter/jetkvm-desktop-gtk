@@ -13,6 +13,7 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"github.com/lkarlslund/jetkvm-desktop/pkg/capture"
+	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
 	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
 )
@@ -34,6 +35,7 @@ type Application struct {
 
 	mainStack *gtk.Stack
 	launcher  *Launcher
+	hkManager hotkeys.Manager
 
 	// Session view widgets
 	video      *VideoView
@@ -91,6 +93,8 @@ func Run(cfg Config) int {
 
 func (a *Application) activate() {
 	a.prefs = loadPrefs()
+	a.hkManager = hotkeys.NewManager()
+	a.hkManager.SetEnabled(a.prefs.ExperimentalGlobalHotkeys)
 	a.window = gtk.NewApplicationWindow(a.gtkApp)
 	a.window.SetTitle("JetKVM Desktop")
 	a.window.SetDefaultSize(480, 640)
@@ -486,6 +490,7 @@ func (a *Application) startSession(baseURL, password string) {
 	a.cancel = cancel
 	a.ctrl.Start(ctx)
 	a.video.ctrl = a.ctrl
+	a.video.applyCursorPref()
 	a.sessionURL = baseURL
 	log.Printf("[gtkui] session started for %s", baseURL)
 }
