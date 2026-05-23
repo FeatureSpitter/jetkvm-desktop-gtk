@@ -1,51 +1,83 @@
-# jetkvm-desktop
+# jetkvm-desktop-gtk
 
-A native desktop client for JetKVM with local discovery, direct connect, remote control, and core settings in one window.
+A native GTK4 desktop client for [JetKVM](https://jetkvm.com) with GPU-accelerated video rendering, designed to run smoothly on older and low-power hardware.
+
+> **Fork of [lkarlslund/jetkvm-desktop](https://github.com/lkarlslund/jetkvm-desktop)**
+> — the original cross-platform JetKVM desktop client built with [Ebiten](https://ebitengine.org/).
+> This fork replaces the Ebiten rendering layer with native GTK4 + OpenGL ES 3.0
+> to offload video compositing to the GPU. All credit for the original architecture,
+> protocol implementation, and feature set goes to
+> [@lkarlslund](https://github.com/lkarlslund) and the upstream contributors.
+
+## Why this fork?
+
+The original Ebiten-based client decodes and composites video frames on the CPU, which works well on modern hardware but becomes **unusable on older machines** — CPU pegs at 100%, the UI lags, and battery drains rapidly. Meanwhile, the browser-based JetKVM client handles the same stream effortlessly, proving the bottleneck is in the desktop app's rendering pipeline.
+
+This fork gives old laptops and low-power machines a second life as **responsive KVM terminals** — a 10-year-old laptop with integrated graphics can act as a zero-lag viewer for any machine behind a JetKVM.
+
+### Key differences from upstream
+
+| | Upstream (Ebiten) | This fork (GTK4) |
+|---|---|---|
+| **Rendering** | CPU-based frame compositing | GPU-accelerated OpenGL ES 3.0 shaders |
+| **UI toolkit** | Custom-drawn Ebiten widgets | Native GTK4 components |
+| **CPU usage** | High on older hardware | Minimal — offloaded to GPU |
+| **Platforms** | Windows, macOS, Linux | Linux (X11) — other platforms planned |
+
+## Features
+
+Full feature parity with the upstream client, plus additional improvements:
+
+- **GPU-accelerated video** — YCbCr → RGB conversion via OpenGL ES 3.0 fragment shaders
+- **Native GTK4 UI** — launcher, settings, overlays, floating menu, theme support (dark/light/system)
+- **Total input capture** — X11 keyboard grab with direct HID scancode forwarding (F12/ScrollLock toggle)
+- **Prioritized network discovery** — physical NICs first, then VPNs/containers/Docker networks
+- **Configurable paste** — per-keystroke delay, 19 keyboard layouts, unsupported character preview
+- **Wake-on-LAN** — overlay with device management via KVM RPC
+- **Remote hotkeys** — experimental Alt+Tab forwarding via chord shortcuts
+- **Mouse side buttons** — back/forward (buttons 8/9) supported natively
 
 ![jetkvm-desktop launcher](docs/launcher.png)
 
-## What It Does
-
-- Finds JetKVM devices on your local network
-- Connects directly by hostname, mDNS name, or IP
-- Shows the remote video feed in a native desktop window
-- Sends keyboard and mouse input to the target machine
-- Supports mouse back/forward side buttons in the native client, unlike the browser UI
-- Prompts for a password when the device requires it
-- Exposes the main settings and connection stats without opening the browser UI
-
 ## Getting Started
 
-Open the launcher:
+### Build
 
 ```bash
-jetkvm-desktop
+# Dependencies (Debian/Ubuntu)
+sudo apt install libgtk-4-dev libglib2.0-dev build-essential
+
+# Build
+CGO_ENABLED=1 go build -o jetkvm-desktop-gtk ./cmd/jetkvm-desktop
 ```
 
-Connect straight to a known device:
+### Run
 
 ```bash
-jetkvm-desktop jetkvm.local
-jetkvm-desktop 192.168.1.50
-jetkvm-desktop http://192.168.1.50
+# Open launcher with device discovery
+./jetkvm-desktop-gtk
+
+# Connect directly to a device
+./jetkvm-desktop-gtk jetkvm.local
+./jetkvm-desktop-gtk 192.168.1.50
 ```
 
-If the device requires a password, the app will ask for it.
-
-The experimental USB-network settings UI is disabled by default because current KVM targets do not support it yet. To expose it at runtime, set `JETKVM_DESKTOP_ENABLE_EXPERIMENTAL_USB_NETWORK=1`.
-
-## Inside the App
+If the device requires a password, the app will prompt for it.
 
 ![jetkvm-desktop settings](docs/settings.png)
 
-Once connected, the app keeps video, input, stats, and the core device settings in the same window, so the common JetKVM workflow stays fast and desktop-native.
+## Platform Support
 
-## JetKVM
+Currently **Linux only** (GTK4 + X11). macOS and Windows support is planned using GTK4 as well — platform-specific code (capture, window management) already has stubs for all three platforms.
 
-This is a separate desktop client for the JetKVM ecosystem. For the upstream JetKVM repositories, see `github.com/jetkvm`.
+Wayland support depends on GTK4's Wayland backend maturity and input capture protocol availability.
 
-## Downloads
+## Attribution
 
-Prebuilt releases are published on GitHub Releases:
+This project is a fork of [lkarlslund/jetkvm-desktop](https://github.com/lkarlslund/jetkvm-desktop) by [@lkarlslund](https://github.com/lkarlslund). The original project provides the protocol layer, session management, device discovery, input handling, and the full feature set that this fork builds upon. The upstream maintainer's decision to keep Ebiten as the cross-platform rendering foundation is entirely reasonable — this fork simply explores a different trade-off optimized for GPU-accelerated rendering on Linux.
 
-`https://github.com/lkarlslund/jetkvm-desktop/releases`
+For the upstream JetKVM ecosystem, see [github.com/jetkvm](https://github.com/jetkvm).
+
+## License
+
+Same license as the upstream project.
