@@ -276,10 +276,15 @@ func (a *Application) syncSessionState() {
 		a.settingsHint.SetVisible(true)
 	}
 
-	// Auth failed -- go back to launcher
+	// Auth failed while on session view -- go back to launcher password page
 	if phase == session.PhaseAuthFailed && a.lastPhase != session.PhaseAuthFailed {
 		a.closeOverlay()
 		a.releaseTotalCapture()
+		if a.mainStack.VisibleChildName() == "session" {
+			a.launcher.ShowPasswordPage(a.ctrl.Snapshot().BaseURL)
+			a.mainStack.SetVisibleChildName("launcher")
+			a.window.SetDefaultSize(480, 640)
+		}
 	}
 
 	a.lastPhase = phase

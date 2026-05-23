@@ -326,6 +326,19 @@ func (l *Launcher) onPasswordConnect() {
 	})
 }
 
+// ShowPasswordPage navigates to the password page with the given URL pre-filled.
+// Used by the CLI direct-connect path when auth fails.
+func (l *Launcher) ShowPasswordPage(baseURL string) {
+	l.pendingURL = baseURL
+	l.targetLabel.SetText(baseURL)
+	l.passErrorLabel.SetText("Authentication required")
+	l.passwordEntry.SetObjectProperty("text", "")
+	l.passConnBtn.SetSensitive(true)
+	l.passBackBtn.SetSensitive(true)
+	l.passwordEntry.SetSensitive(true)
+	l.Stack.SetVisibleChildName("password")
+}
+
 func (l *Launcher) drainDiscovery() {
 	changed := false
 	for {

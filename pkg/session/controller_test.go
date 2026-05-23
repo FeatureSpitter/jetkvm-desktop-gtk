@@ -598,6 +598,28 @@ func TestIsAuthErrorMatchesDeviceMessages(t *testing.T) {
 	}
 }
 
+func TestControllerAuthFailedWithWrongPassword(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "wrong-password",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  false,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+
+	waitForPhase(t, controller, PhaseAuthFailed, 5*time.Second)
+
+	// Auth failure must not trigger reconnect attempts.
+	time.Sleep(500 * time.Millisecond)
+	if controller.Snapshot().Phase != PhaseAuthFailed {
+		t.Fatalf("phase changed from AuthFailed to %v — should stay stuck", controller.Snapshot().Phase)
+	}
+}
+
 func startEmulator(t *testing.T) (*emulator.Server, context.Context, context.CancelFunc) {
 	t.Helper()
 	return startFaultedEmulator(t, emulator.FaultConfig{})
