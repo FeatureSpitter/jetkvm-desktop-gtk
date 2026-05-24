@@ -64,7 +64,10 @@ func TestFormatAge(t *testing.T) {
 func TestPrefsRecentRoundtrip(t *testing.T) {
 	p := defaultPrefs()
 	p.addRecent("https://a.local", "A")
+	// Windows has ~15ms timer resolution; ensure distinct timestamps.
+	time.Sleep(20 * time.Millisecond)
 	p.addRecent("https://b.local", "B")
+	time.Sleep(20 * time.Millisecond)
 	p.addRecent("https://c.local", "C")
 
 	if len(p.RecentConnections) != 3 {

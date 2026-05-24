@@ -209,8 +209,12 @@ func (c *Client) Connect(ctx context.Context) error {
 			return
 		}
 		c.videoMu.Lock()
+		old := c.videoStream
 		c.videoStream = stream
 		c.videoMu.Unlock()
+		if old != nil {
+			old.Close()
+		}
 		c.emitLifecycle(LifecycleEvent{Type: "video_ready"})
 	})
 	videoTransceiver, err := pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
