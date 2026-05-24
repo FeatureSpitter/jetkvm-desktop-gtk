@@ -36,12 +36,8 @@ func FormatMAC(hw net.HardwareAddr) string {
 	return hw.String()
 }
 
-// Send broadcasts a Wake-on-LAN magic packet for the given MAC address.
-// The packet is sent as a UDP broadcast on port 9.
-func Send(mac net.HardwareAddr) error {
-	if len(mac) != 6 {
-		return fmt.Errorf("MAC address must be 6 bytes, got %d", len(mac))
-	}
+// buildPacket constructs the 102-byte WOL magic packet.
+func buildPacket(mac net.HardwareAddr) [magicPacketSize]byte {
 	var packet [magicPacketSize]byte
 	for i := 0; i < 6; i++ {
 		packet[i] = 0xFF
@@ -49,17 +45,76 @@ func Send(mac net.HardwareAddr) error {
 	for i := 0; i < 16; i++ {
 		copy(packet[6+i*6:], mac)
 	}
-	conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{
-		IP:   net.IPv4bcast,
-		Port: 9,
-	})
-	if err != nil {
-		return fmt.Errorf("dial broadcast: %w", err)
+	return packet
+}
+
+// broadcastAddrs returns the directed broadcast address for every IPv4
+// interface, plus the global 255.255.255.255 as a fallback.
+func broadcastAddrs() []net.IP {
+	seen := map[string]bool{}
+	var addrs []net.IP
+
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		ifAddrs, _ := iface.Addrs()
+		for _, a := range ifAddrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok || ipNet.IP.To4() == nil {
+				continue
+			}
+			ip4 := ipNet.IP.To4()
+			mask := ipNet.Mask
+			bcast := make(net.IP, 4)
+			for i := 0; i < 4; i++ {
+				bcast[i] = ip4[i] | ^mask[i]
+			}
+			key := bcast.String()
+			if !seen[key] {
+				seen[key] = true
+				addrs = append(addrs, bcast)
+			}
+		}
 	}
-	defer conn.Close()
-	_, err = conn.Write(packet[:])
-	if err != nil {
-		return fmt.Errorf("send magic packet: %w", err)
+
+	if !seen[net.IPv4bcast.String()] {
+		addrs = append(addrs, net.IPv4bcast)
+	}
+	return addrs
+}
+
+// Send broadcasts a Wake-on-LAN magic packet for the given MAC address
+// on every network interface's broadcast address (port 9).
+func Send(mac net.HardwareAddr) error {
+	if len(mac) != 6 {
+		return fmt.Errorf("MAC address must be 6 bytes, got %d", len(mac))
+	}
+	packet := buildPacket(mac)
+	targets := broadcastAddrs()
+	var firstErr error
+	sent := 0
+	for _, ip := range targets {
+		conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{IP: ip, Port: 9})
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("dial %s: %w", ip, err)
+			}
+			continue
+		}
+		_, err = conn.Write(packet[:])
+		conn.Close()
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("send to %s: %w", ip, err)
+			}
+			continue
+		}
+		sent++
+	}
+	if sent == 0 && firstErr != nil {
+		return firstErr
 	}
 	return nil
 }

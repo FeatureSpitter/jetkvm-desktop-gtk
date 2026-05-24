@@ -2,10 +2,12 @@ package gtkui
 
 import (
 	"context"
+	"log"
 
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/wol"
 )
 
 // WoLOverlay manages Wake-on-LAN saved devices and sending magic packets.
@@ -87,13 +89,16 @@ func (w *WoLOverlay) Refresh() {
 	tw, th := overlayTargetSize(w.app, 560, 520)
 	w.Box.SetSizeRequest(tw, th)
 	if w.app.ctrl == nil {
+		log.Printf("[wol] refresh: no controller, skipping")
 		return
 	}
 	devices, err := w.app.ctrl.GetWakeOnLanDevices(context.Background())
 	if err != nil {
+		log.Printf("[wol] error loading devices: %v", err)
 		w.statusLabel.SetText("Error loading devices: " + err.Error())
 		return
 	}
+	log.Printf("[wol] loaded %d device(s)", len(devices))
 	w.devices = devices
 	w.rebuildList()
 }
@@ -125,14 +130,43 @@ func (w *WoLOverlay) makeDeviceRow(dev session.WakeOnLanDevice) *gtk.ListBoxRow 
 	wakeBtn.AddCSSClass("suggested-action")
 	mac := dev.MacAddress
 	wakeBtn.ConnectClicked(func() {
+		log.Printf("[wol] sending magic packet to %s", mac)
+		var msgs []string
+
+		// Always send locally on all interfaces.
+		hw, err := wol.ParseMAC(mac)
+		if err != nil {
+			log.Printf("[wol] invalid MAC %s: %v", mac, err)
+			w.statusLabel.SetText("Invalid MAC: " + err.Error())
+			return
+		}
+		if err := wol.Send(hw); err != nil {
+			log.Printf("[wol] local send error for %s: %v", mac, err)
+			msgs = append(msgs, "local: "+err.Error())
+		} else {
+			log.Printf("[wol] local magic packet sent to %s (all interfaces)", mac)
+			msgs = append(msgs, "local: sent")
+		}
+
+		// Also send via KVM device if connected.
 		if w.app.ctrl != nil {
-			err := w.app.ctrl.SendWakeOnLan(mac, "")
-			if err != nil {
-				w.statusLabel.SetText("Error: " + err.Error())
+			if err := w.app.ctrl.SendWakeOnLan(mac, ""); err != nil {
+				log.Printf("[wol] remote send error for %s: %v", mac, err)
+				msgs = append(msgs, "via KVM: "+err.Error())
 			} else {
-				w.statusLabel.SetText("Magic packet sent to " + mac)
+				log.Printf("[wol] remote magic packet sent to %s via KVM", mac)
+				msgs = append(msgs, "via KVM: sent")
 			}
 		}
+
+		status := "WOL " + mac + " — "
+		for i, m := range msgs {
+			if i > 0 {
+				status += ", "
+			}
+			status += m
+		}
+		w.statusLabel.SetText(status)
 	})
 
 	delBtn := gtk.NewButtonFromIconName("window-close-symbolic")
