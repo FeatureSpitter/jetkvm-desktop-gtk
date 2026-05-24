@@ -90,8 +90,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           New-Item -ItemType Directory -Force -Path dist/pkg | Out-Null
-          $env:CGO_LDFLAGS = "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic"
-          go build -trimpath -ldflags='-s -w -extldflags "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic"' -o "dist/pkg/${{ matrix.client_bin }}" ./cmd/jetkvm-desktop
+          $env:CGO_LDFLAGS = "-static-libgcc -static-libstdc++"
+          go build -trimpath -ldflags='-s -w -extldflags "-static-libgcc -static-libstdc++"' -o "dist/pkg/${{ matrix.client_bin }}" ./cmd/jetkvm-desktop
           Copy-Item README.md dist/pkg/README.md
           Compress-Archive -Path dist/pkg/* -DestinationPath "dist/${{ matrix.archive_name }}"
 
@@ -111,10 +111,10 @@ jobs:
           Write-Host "Imported DLLs:"
           $imports | Sort-Object -Unique | ForEach-Object { Write-Host " - $_" }
 
+          # libwinpthread-1.dll is allowed: GTK4 DLLs depend on it at runtime.
           $forbidden = @(
             "libstdc++-6.dll",
             "libgcc_s_seh-1.dll",
-            "libwinpthread-1.dll",
             "libssp-0.dll"
           )
 
