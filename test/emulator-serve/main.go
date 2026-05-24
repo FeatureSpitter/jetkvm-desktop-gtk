@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/emulator"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/emulator"
 )
 
 func main() {

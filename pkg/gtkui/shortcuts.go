@@ -6,8 +6,8 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/hotkeys"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
 )
 
 func (a *Application) setupShortcuts() {

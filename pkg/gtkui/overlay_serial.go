@@ -4,7 +4,7 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
 )
 
 // SerialOverlay shows the serial console output and accepts keyboard input.

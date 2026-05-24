@@ -6,7 +6,7 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 	"golang.design/x/clipboard"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
 )
 
 // PasteOverlay lets the user send text to the remote via HID keyboard macros.

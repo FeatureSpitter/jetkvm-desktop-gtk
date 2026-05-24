@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/client"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/client"
 )
 
 func TestLiveControllerConnectsAndForwardsSafeInput(t *testing.T) {

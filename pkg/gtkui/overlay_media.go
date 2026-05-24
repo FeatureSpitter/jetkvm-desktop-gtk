@@ -7,7 +7,7 @@ import (
 
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/virtualmedia"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/virtualmedia"
 )
 
 // MediaOverlay handles virtual media mounting (URL / storage / upload).

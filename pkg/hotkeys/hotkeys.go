@@ -3,8 +3,8 @@ package hotkeys
 import (
 	"fmt"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/hidrpc"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/hidrpc"
 )
 
 type Action uint8

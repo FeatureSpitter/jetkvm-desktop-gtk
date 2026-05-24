@@ -1,6 +1,6 @@
 package gtkui
 
-import "github.com/lkarlslund/jetkvm-desktop/pkg/input"
+import "github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
 
 // GDK key values (from gdk/gdkkeysyms.h). Only the subset we need.
 const (

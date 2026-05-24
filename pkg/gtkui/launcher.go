@@ -14,9 +14,9 @@ import (
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/discovery"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/discovery"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/logging"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
 )
 
 // Launcher shows the device browser / manual connect / password screens.

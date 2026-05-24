@@ -12,10 +12,10 @@ import (
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/capture"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/capture"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/hotkeys"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
 )
 
 const appID = "org.jetkvm.desktop"

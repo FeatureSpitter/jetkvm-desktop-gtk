@@ -3,7 +3,7 @@ package gtkui
 import (
 	"testing"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
 )
 
 func TestGDKKeyToInputKey(t *testing.T) {

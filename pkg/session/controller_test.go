@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/client"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/emulator"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/auth"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/virtualmedia"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/client"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/emulator"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/auth"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/virtualmedia"
 )
 
 func TestControllerConnects(t *testing.T) {

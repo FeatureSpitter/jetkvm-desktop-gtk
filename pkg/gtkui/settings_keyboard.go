@@ -5,8 +5,8 @@ import (
 
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
 )
 
 // SettingsKeyboard configures keyboard capture, layout, and hotkeys.

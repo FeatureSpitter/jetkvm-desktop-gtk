@@ -14,9 +14,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/gtkui"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/gtkui"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/logging"
 )
+
+var version = "dev"
 
 const (
 	defaultPasswordEnv        = "JETKVM_PASSWORD"
@@ -60,9 +62,10 @@ func main() {
 	passwordEnv := ""
 
 	rootCmd := &cobra.Command{
-		Use:   "jetkvm-desktop [base-url-or-host]",
-		Short: "Desktop JetKVM client (GTK4)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "jetkvm-desktop [base-url-or-host]",
+		Short:   "Desktop JetKVM client (GTK4)",
+		Version: version,
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
 				cfg.BaseURL = args[0]
@@ -87,7 +90,7 @@ func main() {
 				}()
 			}
 
-			log.Printf("starting jetkvm-desktop (log file: %s)", logging.LogFilePath())
+			log.Printf("starting jetkvm-desktop %s (log file: %s)", version, logging.LogFilePath())
 			exitCode := func() (code int) {
 				defer func() {
 					if r := recover(); r != nil {

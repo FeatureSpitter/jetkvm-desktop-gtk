@@ -8,7 +8,7 @@ import (
 
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/session"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
 )
 
 // SettingsGeneral shows device info, update controls, and session actions.

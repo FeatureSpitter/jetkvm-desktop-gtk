@@ -14,12 +14,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/auth"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/hidrpc"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/jsonrpc"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/signaling"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/video"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/logging"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/auth"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/hidrpc"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/jsonrpc"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/signaling"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/video"
 )
 
 type Config struct {

@@ -1,4 +1,4 @@
-module github.com/lkarlslund/jetkvm-desktop
+module github.com/FeatureSpitter/jetkvm-desktop-gtk
 
 go 1.26.2
 
@@ -13,6 +13,7 @@ require (
 	golang.design/x/clipboard v0.7.0
 	golang.org/x/sys v0.41.0
 	golang.org/x/text v0.34.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
@@ -49,7 +50,6 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
 	golang.org/x/tools v0.41.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
 tool github.com/dmarkham/enumer

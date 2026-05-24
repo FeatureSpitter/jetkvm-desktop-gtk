@@ -14,12 +14,12 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
-	"github.com/lkarlslund/jetkvm-desktop/pkg/client"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/hotkeys"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/input"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/logging"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/protocol/auth"
-	"github.com/lkarlslund/jetkvm-desktop/pkg/virtualmedia"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/client"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/hotkeys"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/input"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/logging"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/protocol/auth"
+	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/virtualmedia"
 )
 
 //go:generate go tool github.com/dmarkham/enumer -type=Phase -linecomment -text -output controller_enums.go
