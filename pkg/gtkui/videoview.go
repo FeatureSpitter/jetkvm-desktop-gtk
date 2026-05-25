@@ -198,8 +198,12 @@ func (v *VideoView) setupInput() {
 
 	motionCtrl := gtk.NewEventControllerMotion()
 	motionCtrl.ConnectMotion(func(x, y float64) {
-		if v.app != nil && (x != v.lastMX || y != v.lastMY) {
-			v.app.revealUIFor(1600 * time.Millisecond)
+		if v.app != nil && v.app.chrome != nil && !v.app.prefs.PinChrome {
+			w := v.GLArea.AllocatedWidth()
+			h := v.GLArea.AllocatedHeight()
+			if v.app.chrome.HitTest(x, y, w, h) {
+				v.app.revealUIFor(1600 * time.Millisecond)
+			}
 		}
 		v.lastMX = x
 		v.lastMY = y

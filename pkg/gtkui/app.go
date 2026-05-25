@@ -406,7 +406,13 @@ func (a *Application) revealUIFor(d time.Duration) {
 
 func (a *Application) syncChromeAlpha() {
 	alpha := a.uiAlpha()
-	if a.chrome.IsHovering() || a.chrome.IsDragging() {
+	if a.chrome.IsDragging() {
+		alpha = 1
+	}
+	if alpha <= 0 {
+		a.chrome.ClearHover()
+	}
+	if a.chrome.IsHovering() {
 		alpha = 1
 	}
 	a.chrome.Box.SetOpacity(alpha)

@@ -66,6 +66,27 @@ func (c *Chrome) IsDragging() bool { return c.dragging }
 // While true, the menu must remain visible.
 func (c *Chrome) IsHovering() bool { return c.hovering }
 
+// ClearHover resets the hover state. Called when chrome fades to alpha 0
+// since GTK may not deliver a leave event after SetCanTarget(false).
+func (c *Chrome) ClearHover() { c.hovering = false }
+
+// HitTest checks if window-relative coordinates (wx, wy) fall within
+// the chrome bar's region (with padding for easy discovery).
+func (c *Chrome) HitTest(wx, wy float64, windowW, windowH int) bool {
+	cw := c.Box.AllocatedWidth()
+	ch := c.Box.AllocatedHeight()
+	if cw <= 0 || ch <= 0 {
+		return false
+	}
+	const pad = 30
+	// Chrome is AlignEnd (right), AlignStart (top), offset by marginEnd/marginTop
+	x0 := float64(windowW - c.marginX - cw - pad)
+	y0 := float64(c.marginY - pad)
+	x1 := float64(windowW - c.marginX + pad)
+	y1 := float64(c.marginY + ch + pad)
+	return wx >= x0 && wx <= x1 && wy >= y0 && wy <= y1
+}
+
 func NewChrome(app *Application) *Chrome {
 	c := &Chrome{
 		app:     app,
