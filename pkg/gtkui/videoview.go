@@ -28,6 +28,7 @@ type VideoView struct {
 	frameH    int
 	ycbcr     bool
 	keyboard  *input.Keyboard
+	heldKeys  map[byte]bool
 	buttons   byte
 	lastMX    float64
 	lastMY    float64
@@ -48,6 +49,7 @@ func NewVideoView(app *Application, ctrl *session.Controller) *VideoView {
 		app:      app,
 		ctrl:     ctrl,
 		keyboard: input.NewKeyboard(),
+		heldKeys: make(map[byte]bool),
 	}
 	v.GLArea.SetAutoRender(false)
 	v.GLArea.SetUseES(true)
@@ -150,6 +152,18 @@ func ycbcrToRGBA(src *image.YCbCr) *image.RGBA {
 	return dst
 }
 
+func (v *VideoView) releaseAllKeys() {
+	if v.ctrl == nil || len(v.heldKeys) == 0 {
+		return
+	}
+	log.Printf("[input] focus lost, releasing %d held key(s)", len(v.heldKeys))
+	for hid := range v.heldKeys {
+		_ = v.ctrl.SendKeypress(hid, false)
+	}
+	v.heldKeys = make(map[byte]bool)
+	v.buttons = 0
+}
+
 // QueueRender triggers a redraw on the next GTK frame.
 func (v *VideoView) QueueRender() {
 	v.GLArea.QueueRender()
@@ -165,12 +179,14 @@ func (v *VideoView) setupInput() {
 		}
 		if hid, ok := gtkKeycodeToHID[keycode]; ok {
 			log.Printf("[input] key DOWN  keycode=%d keyval=0x%04x hid=0x%02x (via keycode)", keycode, keyval, hid)
+			v.heldKeys[hid] = true
 			_ = v.ctrl.SendKeypress(hid, true)
 			return true
 		}
 		if key, ok := gdkKeyToInputKey(keyval); ok {
 			if hid, ok := input.KeyToHID(key); ok {
 				log.Printf("[input] key DOWN  keycode=%d keyval=0x%04x hid=0x%02x (via keyval)", keycode, keyval, hid)
+				v.heldKeys[hid] = true
 				_ = v.ctrl.SendKeypress(hid, true)
 				return true
 			}
@@ -184,17 +200,25 @@ func (v *VideoView) setupInput() {
 		}
 		if hid, ok := gtkKeycodeToHID[keycode]; ok {
 			log.Printf("[input] key UP    keycode=%d keyval=0x%04x hid=0x%02x (via keycode)", keycode, keyval, hid)
+			delete(v.heldKeys, hid)
 			_ = v.ctrl.SendKeypress(hid, false)
 			return
 		}
 		if key, ok := gdkKeyToInputKey(keyval); ok {
 			if hid, ok := input.KeyToHID(key); ok {
 				log.Printf("[input] key UP    keycode=%d keyval=0x%04x hid=0x%02x (via keyval)", keycode, keyval, hid)
+				delete(v.heldKeys, hid)
 				_ = v.ctrl.SendKeypress(hid, false)
 			}
 		}
 	})
 	v.GLArea.AddController(keyCtrl)
+
+	focusCtrl := gtk.NewEventControllerFocus()
+	focusCtrl.ConnectLeave(func() {
+		v.releaseAllKeys()
+	})
+	v.GLArea.AddController(focusCtrl)
 
 	motionCtrl := gtk.NewEventControllerMotion()
 	motionCtrl.ConnectMotion(func(x, y float64) {
