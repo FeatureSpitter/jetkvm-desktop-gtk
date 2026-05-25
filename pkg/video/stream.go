@@ -175,7 +175,7 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 				stream.setError(err)
 				continue
 			}
-			if img != nil {
+			if ValidImage(img) {
 				stream.publish(Frame{Image: img, At: time.Now()})
 				frameCount++
 			}

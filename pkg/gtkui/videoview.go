@@ -107,8 +107,14 @@ func (v *VideoView) onRender(_ gdk.GLContexter) bool {
 }
 
 func (v *VideoView) uploadFrame(img image.Image) {
+	if !video.ValidImage(img) {
+		return
+	}
 	switch f := img.(type) {
 	case *video.PackedYCbCr:
+		if f.RGBA == nil {
+			return
+		}
 		v.ycbcr = true
 		rgba := f.RGBA
 		v.frameW = rgba.Rect.Dx()

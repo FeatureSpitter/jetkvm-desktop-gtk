@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/session"
@@ -129,45 +130,7 @@ func (w *WoLOverlay) makeDeviceRow(dev session.WakeOnLanDevice) *gtk.ListBoxRow 
 	wakeBtn := gtk.NewButtonWithLabel("Wake")
 	wakeBtn.AddCSSClass("suggested-action")
 	mac := dev.MacAddress
-	wakeBtn.ConnectClicked(func() {
-		log.Printf("[wol] sending magic packet to %s", mac)
-		var msgs []string
-
-		// Always send locally on all interfaces.
-		hw, err := wol.ParseMAC(mac)
-		if err != nil {
-			log.Printf("[wol] invalid MAC %s: %v", mac, err)
-			w.statusLabel.SetText("Invalid MAC: " + err.Error())
-			return
-		}
-		if err := wol.Send(hw); err != nil {
-			log.Printf("[wol] local send error for %s: %v", mac, err)
-			msgs = append(msgs, "local: "+err.Error())
-		} else {
-			log.Printf("[wol] local magic packet sent to %s (all interfaces)", mac)
-			msgs = append(msgs, "local: sent")
-		}
-
-		// Also send via KVM device if connected.
-		if w.app.ctrl != nil {
-			if err := w.app.ctrl.SendWakeOnLan(mac, ""); err != nil {
-				log.Printf("[wol] remote send error for %s: %v", mac, err)
-				msgs = append(msgs, "via KVM: "+err.Error())
-			} else {
-				log.Printf("[wol] remote magic packet sent to %s via KVM", mac)
-				msgs = append(msgs, "via KVM: sent")
-			}
-		}
-
-		status := "WOL " + mac + " — "
-		for i, m := range msgs {
-			if i > 0 {
-				status += ", "
-			}
-			status += m
-		}
-		w.statusLabel.SetText(status)
-	})
+	wakeBtn.ConnectClicked(func() { w.wakeDevice(mac) })
 
 	delBtn := gtk.NewButtonFromIconName("window-close-symbolic")
 	delBtn.AddCSSClass("flat")
@@ -182,6 +145,45 @@ func (w *WoLOverlay) makeDeviceRow(dev session.WakeOnLanDevice) *gtk.ListBoxRow 
 	row := gtk.NewListBoxRow()
 	row.SetChild(box)
 	return row
+}
+
+func (w *WoLOverlay) wakeDevice(mac string) {
+	log.Printf("[wol] sending magic packet to %s", mac)
+
+	hw, err := wol.ParseMAC(mac)
+	if err != nil {
+		log.Printf("[wol] invalid MAC %s: %v", mac, err)
+		w.statusLabel.SetText("Invalid MAC: " + err.Error())
+		return
+	}
+	if err := wol.Send(hw); err != nil {
+		log.Printf("[wol] local send error for %s: %v", mac, err)
+		w.statusLabel.SetText("WOL " + mac + " — local: " + err.Error())
+		return
+	}
+	log.Printf("[wol] local magic packet sent to %s (all interfaces)", mac)
+
+	ctrl := w.app.ctrl
+	if ctrl == nil {
+		w.statusLabel.SetText("WOL " + mac + " — local: sent")
+		return
+	}
+
+	w.statusLabel.SetText("WOL " + mac + " — local: sent, via KVM: sending...")
+	go func() {
+		err := ctrl.SendWakeOnLan(mac, "")
+		glib.IdleAdd(func() {
+			var status string
+			if err != nil {
+				log.Printf("[wol] remote send error for %s: %v", mac, err)
+				status = "WOL " + mac + " — local: sent, via KVM: " + err.Error()
+			} else {
+				log.Printf("[wol] remote magic packet sent to %s via KVM", mac)
+				status = "WOL " + mac + " — local: sent, via KVM: sent"
+			}
+			w.statusLabel.SetText(status)
+		})
+	}()
 }
 
 func (w *WoLOverlay) addDevice() {

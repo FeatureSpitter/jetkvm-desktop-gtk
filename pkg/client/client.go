@@ -686,6 +686,9 @@ func (c *Client) LatestFrameInfo() (image.Image, time.Time) {
 	if frame == nil {
 		return nil, time.Time{}
 	}
+	if !video.ValidImage(frame.Image) {
+		return nil, time.Time{}
+	}
 	return frame.Image, frame.At
 }
 
