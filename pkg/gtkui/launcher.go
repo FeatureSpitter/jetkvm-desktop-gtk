@@ -269,7 +269,12 @@ func (l *Launcher) connectTo(baseURL string) {
 	l.pendingURL = baseURL
 	l.setConnecting(true)
 	l.connectingLbl.SetText("Connecting to " + baseURL + "…")
-	l.app.startSession(baseURL, "")
+
+	savedPass := ""
+	if rc := l.prefs.findRecent(baseURL); rc != nil {
+		savedPass = rc.Password
+	}
+	l.app.startSession(baseURL, savedPass)
 
 	glib.IdleAdd(func() { l.refreshRecents() })
 
@@ -314,6 +319,7 @@ func (l *Launcher) onPasswordConnect() {
 	l.passwordEntry.SetSensitive(false)
 	l.app.startSession(l.pendingURL, password)
 
+	pendingPass := password
 	glib.TimeoutAdd(200, func() bool {
 		if l.app.ctrl == nil {
 			l.passConnBtn.SetSensitive(true)
@@ -330,6 +336,10 @@ func (l *Launcher) onPasswordConnect() {
 			l.passErrorLabel.SetText("Incorrect password")
 			return false
 		case session.PhaseConnected:
+			l.prefs.updateRecent(l.pendingURL, func(rc *RecentConnection) {
+				rc.Password = pendingPass
+			})
+			_ = savePrefs(*l.prefs)
 			l.app.showSession()
 			return false
 		case session.PhaseFatal:
@@ -424,6 +434,13 @@ func (l *Launcher) rebuildDeviceList() {
 		statusLabel.AddCSSClass("dim-label")
 		box.Append(statusLabel)
 
+		browserBtn := gtk.NewButtonWithLabel("🌐")
+		browserBtn.AddCSSClass("flat")
+		browserBtn.SetTooltipText("Open in browser")
+		devURL := dev.BaseURL
+		browserBtn.ConnectClicked(func() { openInBrowser(devURL) })
+		box.Append(browserBtn)
+
 		row := gtk.NewListBoxRow()
 		row.SetChild(box)
 		row.SetActivatable(true)
@@ -463,6 +480,13 @@ func (l *Launcher) refreshRecents() {
 		ageLabel := gtk.NewLabel(formatAge(age))
 		ageLabel.AddCSSClass("dim-label")
 		box.Append(ageLabel)
+
+		browserBtn := gtk.NewButtonWithLabel("🌐")
+		browserBtn.AddCSSClass("flat")
+		browserBtn.SetTooltipText("Open in browser")
+		browseURL := rc.URL
+		browserBtn.ConnectClicked(func() { openInBrowser(browseURL) })
+		box.Append(browserBtn)
 
 		deleteBtn := gtk.NewButtonFromIconName("window-close-symbolic")
 		deleteBtn.AddCSSClass("flat")
@@ -527,6 +551,17 @@ func removeAllChildren(list *gtk.ListBox) {
 			break
 		}
 		list.Remove(row)
+	}
+}
+
+func openInBrowser(url string) {
+	bin, err := exec.LookPath("xdg-open")
+	if err != nil {
+		log.Printf("xdg-open not found: %v", err)
+		return
+	}
+	if err := exec.Command(bin, url).Start(); err != nil {
+		log.Printf("failed to open %s in browser: %v", url, err)
 	}
 }
 

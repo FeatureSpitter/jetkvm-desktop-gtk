@@ -12,9 +12,13 @@ import (
 const maxRecentConnections = 10
 
 type RecentConnection struct {
-	URL         string    `json:"url"`
-	Name        string    `json:"name,omitempty"`
-	ConnectedAt time.Time `json:"connected_at"`
+	URL          string    `json:"url"`
+	Name         string    `json:"name,omitempty"`
+	ConnectedAt  time.Time `json:"connected_at"`
+	Password     string    `json:"password,omitempty"`
+	ChromePctX   float64   `json:"chrome_pct_x,omitempty"`
+	ChromePctY   float64   `json:"chrome_pct_y,omitempty"`
+	ChromeHasPos bool      `json:"chrome_has_pos,omitempty"`
 }
 
 // Preferences stores user-configurable settings.  The JSON layout is
@@ -115,6 +119,23 @@ func (p *Preferences) addRecent(url, name string) {
 	if len(p.RecentConnections) > maxRecentConnections {
 		p.RecentConnections = p.RecentConnections[:maxRecentConnections]
 	}
+}
+
+func (p *Preferences) findRecent(url string) *RecentConnection {
+	for i := range p.RecentConnections {
+		if p.RecentConnections[i].URL == url {
+			return &p.RecentConnections[i]
+		}
+	}
+	return nil
+}
+
+func (p *Preferences) updateRecent(url string, fn func(*RecentConnection)) {
+	rc := p.findRecent(url)
+	if rc == nil {
+		return
+	}
+	fn(rc)
 }
 
 func (p *Preferences) removeRecent(url string) {

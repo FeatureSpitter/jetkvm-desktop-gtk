@@ -48,11 +48,27 @@ func buildPacket(mac net.HardwareAddr) [magicPacketSize]byte {
 	return packet
 }
 
-// broadcastAddrs returns the directed broadcast address for every IPv4
-// interface, plus the global 255.255.255.255 as a fallback.
-func broadcastAddrs() []net.IP {
-	seen := map[string]bool{}
-	var addrs []net.IP
+type sendTarget struct {
+	localIP   net.IP // bind to this local address (nil = OS default)
+	destIP    net.IP // send to this broadcast address
+	ifaceName string // for logging
+}
+
+// sendTargets enumerates all IPv4 interfaces and returns targets that
+// cover every possible path: directed broadcast per subnet AND global
+// broadcast bound to each interface's local IP (covers /32 point-to-point
+// VPNs like WireGuard/Tailscale where directed broadcast equals the IP).
+func sendTargets() []sendTarget {
+	type key struct{ local, dest string }
+	seen := map[key]bool{}
+	var targets []sendTarget
+	add := func(t sendTarget) {
+		k := key{t.localIP.String(), t.destIP.String()}
+		if !seen[k] {
+			seen[k] = true
+			targets = append(targets, t)
+		}
+	}
 
 	ifaces, _ := net.Interfaces()
 	for _, iface := range ifaces {
@@ -67,39 +83,47 @@ func broadcastAddrs() []net.IP {
 			}
 			ip4 := ipNet.IP.To4()
 			mask := ipNet.Mask
+
+			// Directed broadcast for this subnet.
 			bcast := make(net.IP, 4)
 			for i := 0; i < 4; i++ {
 				bcast[i] = ip4[i] | ^mask[i]
 			}
-			key := bcast.String()
-			if !seen[key] {
-				seen[key] = true
-				addrs = append(addrs, bcast)
-			}
+			add(sendTarget{localIP: ip4, destIP: bcast, ifaceName: iface.Name})
+
+			// Global broadcast bound to this interface's IP — ensures
+			// the packet goes out this specific interface even for /32.
+			add(sendTarget{localIP: ip4, destIP: net.IPv4bcast, ifaceName: iface.Name})
 		}
 	}
 
-	if !seen[net.IPv4bcast.String()] {
-		addrs = append(addrs, net.IPv4bcast)
+	// Fallback: unbound global broadcast (OS picks interface).
+	if len(targets) == 0 {
+		targets = append(targets, sendTarget{destIP: net.IPv4bcast, ifaceName: "default"})
 	}
-	return addrs
+	return targets
 }
 
 // Send broadcasts a Wake-on-LAN magic packet for the given MAC address
-// on every network interface's broadcast address (port 9).
+// on every network interface (port 9), using both directed and global
+// broadcast to cover LAN, VPN, and point-to-point interfaces.
 func Send(mac net.HardwareAddr) error {
 	if len(mac) != 6 {
 		return fmt.Errorf("MAC address must be 6 bytes, got %d", len(mac))
 	}
 	packet := buildPacket(mac)
-	targets := broadcastAddrs()
+	targets := sendTargets()
 	var firstErr error
 	sent := 0
-	for _, ip := range targets {
-		conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{IP: ip, Port: 9})
+	for _, t := range targets {
+		var local *net.UDPAddr
+		if t.localIP != nil {
+			local = &net.UDPAddr{IP: t.localIP}
+		}
+		conn, err := net.DialUDP("udp4", local, &net.UDPAddr{IP: t.destIP, Port: 9})
 		if err != nil {
 			if firstErr == nil {
-				firstErr = fmt.Errorf("dial %s: %w", ip, err)
+				firstErr = fmt.Errorf("dial %s→%s (%s): %w", t.localIP, t.destIP, t.ifaceName, err)
 			}
 			continue
 		}
@@ -107,7 +131,7 @@ func Send(mac net.HardwareAddr) error {
 		conn.Close()
 		if err != nil {
 			if firstErr == nil {
-				firstErr = fmt.Errorf("send to %s: %w", ip, err)
+				firstErr = fmt.Errorf("send %s→%s (%s): %w", t.localIP, t.destIP, t.ifaceName, err)
 			}
 			continue
 		}

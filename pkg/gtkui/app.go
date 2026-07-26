@@ -509,8 +509,9 @@ func (a *Application) showSession() {
 
 	centerWindow(a.window)
 
+	sessionURL := a.sessionURL
 	glib.IdleAdd(func() {
-		a.chrome.ApplyPosition()
+		a.chrome.ApplyPosition(sessionURL)
 		a.applyConnectWindowMode()
 	})
 }

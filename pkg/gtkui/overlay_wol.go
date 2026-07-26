@@ -165,25 +165,29 @@ func (w *WoLOverlay) wakeDevice(mac string) {
 
 	ctrl := w.app.ctrl
 	if ctrl == nil {
-		w.statusLabel.SetText("WOL " + mac + " — local: sent")
+		w.statusLabel.SetText("Magic packet sent to " + mac)
 		return
 	}
 
-	w.statusLabel.SetText("WOL " + mac + " — local: sent, via KVM: sending...")
+	w.statusLabel.SetText("Magic packet sent to " + mac)
 	go func() {
 		err := ctrl.SendWakeOnLan(mac, "")
 		glib.IdleAdd(func() {
-			var status string
 			if err != nil {
-				log.Printf("[wol] remote send error for %s: %v", mac, err)
-				status = "WOL " + mac + " — local: sent, via KVM: " + err.Error()
+				log.Printf("[wol] remote send error for %s (non-fatal): %v", mac, err)
 			} else {
-				log.Printf("[wol] remote magic packet sent to %s via KVM", mac)
-				status = "WOL " + mac + " — local: sent, via KVM: sent"
+				log.Printf("[wol] remote magic packet also sent via KVM for %s", mac)
 			}
-			w.statusLabel.SetText(status)
 		})
 	}()
+
+	glib.TimeoutAdd(5000, func() bool {
+		if w.app.ctrl != nil {
+			log.Printf("[wol] auto-reconnecting to pick up new video after wake")
+			w.app.ctrl.ReconnectNow()
+		}
+		return false
+	})
 }
 
 func (w *WoLOverlay) addDevice() {

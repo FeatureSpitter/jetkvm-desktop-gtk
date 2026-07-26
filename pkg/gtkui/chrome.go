@@ -217,10 +217,18 @@ func (c *Chrome) AttachToOverlay(overlay *gtk.Overlay) {
 			c.flipOrientation()
 			return
 		}
-		c.app.prefs.ChromeCustomX = float64(c.marginX)
-		c.app.prefs.ChromeCustomY = float64(c.marginY)
-		c.app.prefs.ChromeCustomPos = true
-		savePrefs(c.app.prefs)
+		ww := float64(c.app.window.AllocatedWidth())
+		wh := float64(c.app.window.AllocatedHeight())
+		if ww > 0 && wh > 0 && c.app.sessionURL != "" {
+			pctX := float64(c.marginX) / ww
+			pctY := float64(c.marginY) / wh
+			c.app.prefs.updateRecent(c.app.sessionURL, func(rc *RecentConnection) {
+				rc.ChromePctX = pctX
+				rc.ChromePctY = pctY
+				rc.ChromeHasPos = true
+			})
+			savePrefs(c.app.prefs)
+		}
 	})
 
 	overlay.AddController(dragGesture)
@@ -248,10 +256,25 @@ func (c *Chrome) flipOrientation() {
 	savePrefs(c.app.prefs)
 }
 
-// ApplyPosition sets chrome to default position.
-func (c *Chrome) ApplyPosition() {
+// ApplyPosition restores chrome position from per-device prefs (as % of
+// window), falling back to default 8,8 if no saved position exists.
+func (c *Chrome) ApplyPosition(sessionURL string) {
 	c.marginX = 8
 	c.marginY = 8
+	if rc := c.app.prefs.findRecent(sessionURL); rc != nil && rc.ChromeHasPos {
+		ww := float64(c.app.window.AllocatedWidth())
+		wh := float64(c.app.window.AllocatedHeight())
+		if ww > 0 && wh > 0 {
+			c.marginX = int(rc.ChromePctX * ww)
+			c.marginY = int(rc.ChromePctY * wh)
+			if c.marginX < 0 {
+				c.marginX = 0
+			}
+			if c.marginY < 0 {
+				c.marginY = 0
+			}
+		}
+	}
 	c.Box.SetMarginEnd(c.marginX)
 	c.Box.SetMarginTop(c.marginY)
 }
