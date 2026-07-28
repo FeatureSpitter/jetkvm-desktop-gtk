@@ -249,6 +249,7 @@ func (a *Application) tick() {
 	a.syncWindowTitle()
 	a.syncChromeAlpha()
 	a.syncSettingsHint()
+	a.chrome.SyncToWindowSize()
 	a.pollState()
 	a.video.QueueRender()
 	a.updateVisibleOverlay()
@@ -511,8 +512,13 @@ func (a *Application) showSession() {
 
 	sessionURL := a.sessionURL
 	glib.IdleAdd(func() {
-		a.chrome.ApplyPosition(sessionURL)
 		a.applyConnectWindowMode()
+		// Defer position restore until after the window manager has
+		// processed maximize/fullscreen and the allocation is final.
+		glib.TimeoutAdd(150, func() bool {
+			a.chrome.ApplyPosition(sessionURL)
+			return false
+		})
 	})
 }
 

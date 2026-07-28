@@ -56,6 +56,14 @@ type Chrome struct {
 	dragOffY   float64
 	dragStartX int
 	dragStartY int
+
+	// Proportional position (0..1). Source of truth when hasPct is true;
+	// pixel margins are recomputed on every window resize.
+	hasPct bool
+	pctX   float64
+	pctY   float64
+	lastW  int
+	lastH  int
 }
 
 // IsDragging reports whether a drag is in progress on the floating menu handle.
@@ -217,17 +225,23 @@ func (c *Chrome) AttachToOverlay(overlay *gtk.Overlay) {
 			c.flipOrientation()
 			return
 		}
-		ww := float64(c.app.window.AllocatedWidth())
-		wh := float64(c.app.window.AllocatedHeight())
-		if ww > 0 && wh > 0 && c.app.sessionURL != "" {
-			pctX := float64(c.marginX) / ww
-			pctY := float64(c.marginY) / wh
-			c.app.prefs.updateRecent(c.app.sessionURL, func(rc *RecentConnection) {
-				rc.ChromePctX = pctX
-				rc.ChromePctY = pctY
-				rc.ChromeHasPos = true
-			})
-			savePrefs(c.app.prefs)
+		ww := c.app.window.AllocatedWidth()
+		wh := c.app.window.AllocatedHeight()
+		if ww > 0 && wh > 0 {
+			px, py := chromeMarginToPct(c.marginX, c.marginY, ww, wh)
+			c.pctX = px
+			c.pctY = py
+			c.hasPct = true
+			c.lastW = ww
+			c.lastH = wh
+			if c.app.sessionURL != "" {
+				c.app.prefs.updateRecent(c.app.sessionURL, func(rc *RecentConnection) {
+					rc.ChromePctX = px
+					rc.ChromePctY = py
+					rc.ChromeHasPos = true
+				})
+				savePrefs(c.app.prefs)
+			}
 		}
 	})
 
@@ -259,24 +273,62 @@ func (c *Chrome) flipOrientation() {
 // ApplyPosition restores chrome position from per-device prefs (as % of
 // window), falling back to default 8,8 if no saved position exists.
 func (c *Chrome) ApplyPosition(sessionURL string) {
+	c.hasPct = false
 	c.marginX = 8
 	c.marginY = 8
 	if rc := c.app.prefs.findRecent(sessionURL); rc != nil && rc.ChromeHasPos {
-		ww := float64(c.app.window.AllocatedWidth())
-		wh := float64(c.app.window.AllocatedHeight())
+		ww := c.app.window.AllocatedWidth()
+		wh := c.app.window.AllocatedHeight()
 		if ww > 0 && wh > 0 {
-			c.marginX = int(rc.ChromePctX * ww)
-			c.marginY = int(rc.ChromePctY * wh)
-			if c.marginX < 0 {
-				c.marginX = 0
-			}
-			if c.marginY < 0 {
-				c.marginY = 0
-			}
+			c.pctX = rc.ChromePctX
+			c.pctY = rc.ChromePctY
+			c.hasPct = true
+			c.lastW = ww
+			c.lastH = wh
+			c.marginX, c.marginY = chromePctToMargin(c.pctX, c.pctY, ww, wh)
 		}
 	}
 	c.Box.SetMarginEnd(c.marginX)
 	c.Box.SetMarginTop(c.marginY)
+}
+
+// SyncToWindowSize recomputes pixel margins from proportional position
+// whenever the window dimensions change. Called from the 33ms tick.
+func (c *Chrome) SyncToWindowSize() {
+	if !c.hasPct || c.dragging {
+		return
+	}
+	ww := c.app.window.AllocatedWidth()
+	wh := c.app.window.AllocatedHeight()
+	if ww <= 0 || wh <= 0 || (ww == c.lastW && wh == c.lastH) {
+		return
+	}
+	c.lastW = ww
+	c.lastH = wh
+	c.marginX, c.marginY = chromePctToMargin(c.pctX, c.pctY, ww, wh)
+	c.Box.SetMarginEnd(c.marginX)
+	c.Box.SetMarginTop(c.marginY)
+}
+
+// chromeMarginToPct converts absolute pixel margins to 0..1 fractions of
+// window dimensions. marginX is distance from right, marginY from top.
+func chromeMarginToPct(marginX, marginY, windowW, windowH int) (pctX, pctY float64) {
+	pctX = float64(marginX) / float64(windowW)
+	pctY = float64(marginY) / float64(windowH)
+	return
+}
+
+// chromePctToMargin converts 0..1 fractions back to pixel margins, clamped >= 0.
+func chromePctToMargin(pctX, pctY float64, windowW, windowH int) (marginX, marginY int) {
+	marginX = int(pctX * float64(windowW))
+	marginY = int(pctY * float64(windowH))
+	if marginX < 0 {
+		marginX = 0
+	}
+	if marginY < 0 {
+		marginY = 0
+	}
+	return
 }
 
 func (c *Chrome) onAction(action chromeAction) {
