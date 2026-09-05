@@ -31,6 +31,7 @@ type Stream struct {
 	closeOnce  sync.Once
 	cancelFunc context.CancelFunc
 	onClose    func() error
+	requestKey func()
 }
 
 func NewStream() *Stream {
@@ -43,6 +44,15 @@ func (s *Stream) Latest() *Frame {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.latest
+}
+
+func (s *Stream) latestTime() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.latest == nil {
+		return time.Time{}
+	}
+	return s.latest.At
 }
 
 func (s *Stream) Err() error {
@@ -83,6 +93,20 @@ func (s *Stream) Frames() <-chan Frame {
 	return s.frameCh
 }
 
+// RequestKeyframe asks the sender to emit a fresh keyframe (IDR). JetKVM's
+// encoder only produces a keyframe when asked via an RTCP Picture Loss
+// Indication, so without this a stream that stalled (e.g. the HDMI signal
+// dropped during a reboot and then returned) never recovers — the decoder
+// keeps receiving only inter-frames that reference a long-gone keyframe.
+func (s *Stream) RequestKeyframe() {
+	s.mu.RLock()
+	request := s.requestKey
+	s.mu.RUnlock()
+	if request != nil {
+		request()
+	}
+}
+
 func (s *Stream) Close() {
 	s.closeOnce.Do(func() {
 		if s.cancelFunc != nil {
@@ -94,7 +118,12 @@ func (s *Stream) Close() {
 	})
 }
 
-func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stream, error) {
+// KeyframeRetryInterval is how often a PLI is re-sent while the stream is
+// stale (no new frame decoded). A single PLI can be lost or arrive while the
+// encoder is mid-GOP, so we keep asking until a frame flows again.
+const KeyframeRetryInterval = time.Second
+
+func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote, requestKeyframe func()) (*Stream, error) {
 	if track.Codec().MimeType != webrtc.MimeTypeH264 {
 		return nil, fmt.Errorf("unsupported codec %s", track.Codec().MimeType)
 	}
@@ -102,6 +131,7 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 	ctx, cancel := context.WithCancel(parent)
 	stream := NewStream()
 	stream.cancelFunc = cancel
+	stream.requestKey = requestKeyframe
 
 	decoder, err := NewDecoder()
 	if err != nil {
@@ -128,6 +158,32 @@ func AttachRemoteTrack(parent context.Context, track *webrtc.TrackRemote) (*Stre
 			lastLog      = time.Now()
 			maxDecodeDur time.Duration
 		)
+
+		// JetKVM only emits a keyframe on demand. Ask for one up front so the
+		// very first frame decodes immediately, then let the watchdog below
+		// re-ask if the stream ever goes stale (HDMI dropped and returned).
+		stream.RequestKeyframe()
+
+		// Watchdog: while no fresh frame arrives, keep asking for keyframes.
+		// This is what makes the picture come back after an HDMI signal loss
+		// (e.g. rebooting to reach the BIOS) — the encoder needs a PLI to
+		// start a fresh GOP, and a single PLI may be lost or land mid-GOP.
+		go func() {
+			ticker := time.NewTicker(KeyframeRetryInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					at := stream.latestTime()
+					if time.Since(at) >= KeyframeRetryInterval {
+						stream.RequestKeyframe()
+					}
+				}
+			}
+		}()
+
 		for {
 			select {
 			case <-ctx.Done():

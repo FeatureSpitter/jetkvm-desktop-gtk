@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 
 	"github.com/FeatureSpitter/jetkvm-desktop-gtk/pkg/logging"
@@ -203,7 +204,17 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 
 	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		stream, err := video.AttachRemoteTrack(ctx, track)
+		// JetKVM only sends a keyframe (IDR) when asked via an RTCP PLI.
+		// Pion does not send PLI automatically, so we must — otherwise a
+		// stream that stalls (e.g. HDMI dropped during a reboot) never
+		// recovers because the decoder only gets inter-frames.
+		mediaSSRC := uint32(track.SSRC())
+		requestKeyframe := func() {
+			_ = pc.WriteRTCP([]rtcp.Packet{
+				&rtcp.PictureLossIndication{MediaSSRC: mediaSSRC},
+			})
+		}
+		stream, err := video.AttachRemoteTrack(ctx, track, requestKeyframe)
 		if err != nil {
 			c.emitLifecycle(LifecycleEvent{Type: "video_error", Err: err.Error()})
 			return
