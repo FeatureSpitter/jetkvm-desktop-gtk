@@ -190,6 +190,24 @@ func (l *Launcher) buildBrowsePage() {
 		})
 		l.browsePage.Append(logBtn)
 	}
+
+	// Build timestamp footer, pinned to the bottom of the launcher.
+	if build := l.buildTimestamp(); build != "" {
+		buildLabel := gtk.NewLabel(build)
+		buildLabel.AddCSSClass("dim-label")
+		buildLabel.SetHAlign(gtk.AlignCenter)
+		buildLabel.SetMarginTop(16)
+		l.browsePage.Append(buildLabel)
+	}
+}
+
+// buildTimestamp returns the build time embedded at compile time (via
+// -ldflags "-X ...=..."), or "" when not set.
+func (l *Launcher) buildTimestamp() string {
+	if l.app == nil {
+		return ""
+	}
+	return strings.TrimSpace(l.app.cfg.BuildTime)
 }
 
 func (l *Launcher) buildPasswordPage() {

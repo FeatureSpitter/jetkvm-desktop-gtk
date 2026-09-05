@@ -20,6 +20,10 @@ import (
 
 var version = "dev"
 
+// buildTime is the UTC timestamp of the build, injected at link time via
+// -ldflags "-X main.buildTime=...". Shown in the launcher footer.
+var buildTime = ""
+
 const (
 	defaultPasswordEnv        = "JETKVM_PASSWORD"
 	experimentalUSBNetworkEnv = "JETKVM_DESKTOP_ENABLE_EXPERIMENTAL_USB_NETWORK"
@@ -80,6 +84,7 @@ func main() {
 				return err
 			}
 			cfg.ExperimentalUSBNetwork = envEnabled(experimentalUSBNetworkEnv, os.Getenv)
+			cfg.BuildTime = buildTime
 
 			if addr := strings.TrimSpace(os.Getenv("JETKVM_DESKTOP_PPROF")); addr != "" {
 				go func() {

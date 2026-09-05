@@ -25,6 +25,7 @@ type Config struct {
 	Password               string
 	RPCTimeout             time.Duration
 	ExperimentalUSBNetwork bool
+	BuildTime              string
 }
 
 type Application struct {
