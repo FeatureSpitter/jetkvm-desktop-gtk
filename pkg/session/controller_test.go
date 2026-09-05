@@ -42,6 +42,35 @@ func TestControllerConnects(t *testing.T) {
 	}
 }
 
+// TestControllerReconnectNowRecoversConnectedSession reproduces the WoL
+// scenario: while connected, ReconnectNow() must tear down the current run
+// loop and start a fresh one, re-establishing the session and video. A
+// regression here means the picture stays black until the app is restarted.
+func TestControllerReconnectNowRecoversConnectedSession(t *testing.T) {
+	srv, ctx, cancel := startEmulator(t)
+	defer cancel()
+
+	controller := New(Config{
+		BaseURL:    srv.BaseURL(),
+		Password:   "secret",
+		RPCTimeout: 2 * time.Second,
+		Reconnect:  true,
+	})
+	controller.Start(ctx)
+	defer controller.Stop()
+
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+	waitForFrame(t, controller, 5*time.Second)
+
+	// Simulate the wake: force a full reconnection from a live session.
+	controller.ReconnectNow()
+
+	// The fresh run loop must bring the session back to connected and then
+	// deliver video again — not stay stuck on the old dead peer connection.
+	waitForPhase(t, controller, PhaseConnected, 5*time.Second)
+	waitForFrame(t, controller, 5*time.Second)
+}
+
 func TestControllerReconnectsAfterDisconnect(t *testing.T) {
 	srv, ctx, cancel := startEmulator(t)
 	defer cancel()

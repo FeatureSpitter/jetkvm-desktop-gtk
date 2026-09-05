@@ -83,6 +83,11 @@ type Controller struct {
 	snapshot  Snapshot
 	serialLog serialScrollback
 	current   *client.Client
+	// baseCtx is the long-lived parent for every run loop. It is never
+	// cancelled by ReconnectNow(); instead each run derives its own
+	// cancellable child so a reconnect can tear down one run and start
+	// another from a live base context.
+	baseCtx   context.Context
 	runParent context.Context
 	cancelRun context.CancelFunc
 	running   bool
@@ -191,7 +196,12 @@ func (c *Controller) Start(parent context.Context) {
 	if c.cancelRun != nil {
 		return
 	}
-	ctx, cancel := context.WithCancel(parent)
+	// baseCtx lives for the lifetime of the controller; each run loop
+	// derives its own cancellable child from it.
+	if c.baseCtx == nil {
+		c.baseCtx = parent
+	}
+	ctx, cancel := context.WithCancel(c.baseCtx)
 	c.runParent = ctx
 	c.cancelRun = cancel
 	c.running = true
@@ -206,6 +216,7 @@ func (c *Controller) Stop() {
 	}
 	c.running = false
 	c.runParent = nil
+	c.baseCtx = nil
 	if c.current != nil {
 		_ = c.current.Close()
 		c.current = nil
@@ -241,19 +252,35 @@ func (c *Controller) LatestFrameInfo() (image.Image, time.Time) {
 
 func (c *Controller) ReconnectNow() {
 	c.mu.Lock()
-	current := c.current
-	parent := c.runParent
-	shouldStart := !c.running && c.cancelRun != nil && parent != nil
-	if shouldStart {
-		c.running = true
+	if c.cancelRun == nil || c.baseCtx == nil {
+		c.mu.Unlock()
+		return
+	}
+	// Cancel the current run loop so its watch()/connect() unwinds. If the
+	// controller is currently connected, run() is blocked in watch() waiting
+	// on lifecycle events; closing only the client would leave it stuck there
+	// and never reconnect (the black screen until the app is restarted).
+	c.cancelRun()
+	c.cancelRun = nil
+	c.runParent = nil
+	c.running = false
+	if c.current != nil {
+		_ = c.current.Close()
+		c.current = nil
 	}
 	c.mu.Unlock()
-	if current != nil {
-		_ = current.Close()
-	}
-	if shouldStart {
-		go c.run(parent)
-	}
+
+	// Rebuild the run context from the long-lived base (never-cancelled)
+	// context and restart the loop from a clean state, so the fresh session
+	// (and its WebRTC peer connection) is established. The picture then comes
+	// back after a wake without restarting the app.
+	ctx, cancel := context.WithCancel(c.baseCtx)
+	c.mu.Lock()
+	c.runParent = ctx
+	c.cancelRun = cancel
+	c.running = true
+	c.mu.Unlock()
+	go c.run(ctx)
 }
 
 func (c *Controller) SetPassword(password string) {
@@ -1847,7 +1874,12 @@ func (c *Controller) Stats() client.StatsSnapshot {
 func (c *Controller) run(ctx context.Context) {
 	defer func() {
 		c.mu.Lock()
-		c.running = false
+		// Only clear the running flag if this run's context is still the
+		// current one. A ReconnectNow() may have started a fresh run loop;
+		// we must not clobber its flag when this older goroutine winds down.
+		if c.cancelRun != nil && c.runParent == ctx {
+			c.running = false
+		}
 		c.mu.Unlock()
 	}()
 	var attempt int
